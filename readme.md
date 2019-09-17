@@ -1,17 +1,17 @@
-###Froot Loops!
+## Froot Loops!
 
-##Integrantes:
+### Integrantes:
 
 + Antonio Alvarez Chavarría, B70376
-+ Steven Barahona Meza, B7
++ Steven Barahona Meza, B70893
 + Daniel Barrantes Valverde, B71004
 
-##Docentes:
+### Docentes:
 
 + Gabriela Barrantes
 + Luis Gustavo Esquivel
 + Juan José Vargas
 
-##Repositorio de Proyecto Integrador
+### Repositorio de Proyecto Integrador
 
 Este repositorio contiene avances del proyecto integrador y ejercicios relacionados con el avance del mismo asignados por los docentes.

@@ -21,7 +21,7 @@ void queueInit(queue_t* queue)
 
 int enQueue(queue_t* queue, char* package)
 {
-  printf("jejeps4");
+  
   //check if queue is full
   if ((queue->front == 0 && queue->rear == queue->size-1) || (queue->rear == (queue->front-1)%(queue->size-1)))
   {
@@ -32,49 +32,54 @@ int enQueue(queue_t* queue, char* package)
   {
     queue->front = 0;
     queue->rear = 0;
-    printf("jejeps");
+    
     //queue.recv_matrix[queue.rear] = package;
     strncpy( queue->recv_matrix[queue->rear], package, 516 );
+    //printf("%s ", queue->recv_matrix[queue->rear]);
   }
   else if (queue->rear == queue->size-1 && queue->front != 0)
   {
     queue->rear = 0;
-    printf("jejeps2");
+    
     //queue.recv_matrix[queue.rear] = package;
-    strncpy( queue->recv_matrix[queue->rear], package, 516 );
+    strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );
 
   }else
   {
     queue->rear++;
-    printf("jejeps3");
+    
     //queue.recv_matrix[queue.rear] = package;
-    strncpy( queue->recv_matrix[queue->rear], package, 516 );
+    strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );
   }
+  return EXIT_SUCCESS;
 }
 
 char* deQueue(queue_t* queue)
 {
   if (queue->front == -1)
   {
-    printf("\nQueue is Empty");
+    printf("\nQueue is Empty\n");
     return (char*)-1;
   }
-
-  char* data = queue->recv_matrix[queue->front];
-  queue->recv_matrix[queue->front] = "vacio";
+  /*char* data = (char*)malloc(PACKAGE_SIZE*(sizeof(char)));
+  strcpy( data, "izi");*/
+  char* data = (char*)malloc(PACKAGE_SIZE*(sizeof(char)));
+  strncpy( data, queue->recv_matrix[queue->front], PACKAGE_SIZE );
+  queue->recv_matrix[queue->front] = 0;
 
   if (queue->front == queue->rear)
   {
     queue->front = -1;
     queue->rear = -1;
   }
-  else if (queue->front == queue->size-1)
+  else if (queue->front == (queue->size)-1)
     queue->front = 0;
   else
     queue->front++;
 
   return data;
 }
+
 
 char* queueFirst(queue_t* queue)
 {
@@ -91,7 +96,7 @@ void displayQueue(queue_t* queue)
 
   if (queue->front == -1)
   {
-    printf("\nQueue is Empty");
+    printf("\nQueue is Empty\n");
     return;
   }
 
@@ -99,15 +104,16 @@ void displayQueue(queue_t* queue)
 
   if (queue->rear >= queue->front)
   {
-    for (int i = queue->front;  i < queue->rear; i++)
-      printf("%s ", queue->recv_matrix[i]);
+	//printf("llega aca");
+    for (int i = queue->front;  i <= queue->rear; i++)
+    printf("%s ", queue->recv_matrix[i]);
   }
   else
   {
     for (int i = queue->front;  i < queue->size; i++)
       printf("%s ", queue->recv_matrix[i]);
 
-    for (int i = 0;  i < queue->rear; i++)
+    for (int i = 0;  i <= queue->rear; i++)
       printf("%s ", queue->recv_matrix[i]);
   }
 
@@ -128,9 +134,14 @@ int main()
 {
   queue_t queue;
   queueInit(&queue);
-  enQueue(&queue, "j");
+  enQueue(&queue, "jajaja1");
+  enQueue(&queue, "jajaja2");
+  enQueue(&queue, "jajaja3");
+  displayQueue(&queue);
+  deQueue(&queue);
   displayQueue(&queue);
   queueDestroy(&queue);
 
   return 0;
 }
+

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include "queue.h"
 
 #define PORT 5000
 #define MAXLINE 1000
@@ -76,16 +77,7 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
         while(!end_flag)
         {
             package[0] = 0; //indicar que es un SN
-            
-            /*
-          char* tmp;
-          tmp = (char*)(&SN);
-          package[0];
-          package[1] = tmp[1];
-          package[2] = tmp[2];
-          package[3] = tmp[3];
-          */
-            
+           
             fseek( file, SN*10*512, SEEK_SET);
             
             for(int index = 0; index < 10; ++index)
@@ -115,19 +107,18 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                 tmp[2] = package[2];
                 tmp[3] = package[3];
                 seq_num = (int)tmp;
+                
+				//manejo de cola
+				if( SN < seq_num )
+				{
+					SN = seq_num;
+				}
             }
             
-            //manejo de cola
-            if( SN < seq_num )
-            {
-                SN = seq_num;
-            }
-            /* else
-          {
+
+
             usleep(400000);
-            
-            recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
-          }*/
+
             
         }
         printf("Salí del ciclo\n");
@@ -137,14 +128,14 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
     if(cpid == 0)
     {
         
-        FILE* copypy;
-        file = fopen( copy_file , "wr" );
+        FILE* copy_file;
+        copy_file = fopen("payaso.jpg" , "wr" );
         
         other.sin_addr.s_addr = inet_addr(argv[3]); //IP destino se especifica en el 2 parametro de linea de comando
         other.sin_port = htons(atoi(argv[4]));
         
         queue_t q;
-        q.init;
+        queueInit(&q);
         
         while(!end_flag)
         {
@@ -166,25 +157,25 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                     //SN es el número de secuencia que el emisor está enviando actualmente
                     if( seq_num <= RN + PACKAGE_LIMIT-1 )
                     {
-                        q.enQueue(package);
+                        enQueue(&q ,package);
                     }	
                     
                     //strncpy(recv_matrix[seq_num],package+4,PACK_THROUGHPUT);//Dentro de la cola (hacer copia de los 512 bytes)
                     
-                    strncpy(package, q.first(), 516);
+                    strncpy(package, queueFirst(&q), 516);
                     if( seq_num == RN )
                     {
-                        fwrite( q.first+4 , 1 , PACK_THROUGHPUT , copy );
-                        q.dequeue();
+                        fwrite( queueFirst(&q)+4, 1 , PACK_THROUGHPUT , copy_file );
+                        deQueue(&q);
                         ++RN;
                     }
                     //q.first()->[0] = 1;
                     package[0] = 1;//decir que es un RN
-                    sendto( sockfd, package ,PACK_SIZE, 0 (struct sockaddr*)&other, len );
+                    sendto( sockfd, package ,PACK_SIZE, 0, (struct sockaddr*)&other, len );
                 }
             } 	
             
-            if( queue.first[516] == '*' ) //el último byte del jpg nunca puede ser '*', es el token de finalizar comunicación
+            if(  queueFirst(&q)[516] == '*' ) //el último byte del jpg nunca puede ser '*', es el token de finalizar comunicación
             {
                 end_flag = true;
             }

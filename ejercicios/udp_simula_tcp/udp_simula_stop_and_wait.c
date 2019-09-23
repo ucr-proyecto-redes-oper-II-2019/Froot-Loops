@@ -1,4 +1,4 @@
-#include <stdio.h>
+include <stdio.h>
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -19,6 +19,14 @@
 #define PACK_SIZE 516 //pack_size total, incluyendo headers
 #define PACK_THROUGHPUT 512 //cantidad de datos de todo el paquete (throughput)
 #define PACKAGE_LIMIT 10 //package batch limit
+
+union Data {
+   int seq_num;
+   char str[4];
+} data;
+
+void write_list(lists_t* list,FILE* file);
+void flush( list_t* list, int my_RN, int ack_RN );
 
 // Driver code
 int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] = receptor_ip, argv[4] = receptor_port, argv[5] = file_path
@@ -70,58 +78,76 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
         
         other.sin_addr.s_addr = inet_addr(argv[3]); //IP destino se especifica en el 2 parametro de linea de comando
         other.sin_port = htons(atoi(argv[4]));
-        
-        //queue_t q;
-        //q.init();
-        
-        while(!end_flag)
+
+        union Data data;
+        list_t list;
+        init_list(&list);        
+        //handshake
+        bzero(&package, PACK_SIZE);
+        sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+      
+        int handshake_recv = 0;
+        while(!handshake_recv)
+        { 
+           recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
+            strncpy(data.str,package+1,3);
+           if((data.eq_num == 1)
+           {
+             handshake_recv = true;
+           }
+           sleep(1);
+           sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+        }
+        //end handshake
+         while(!end_flag)
         {
             package[0] = 0; //indicar que es un SN
-           
-            fseek( file, SN*10*512, SEEK_SET);
-            
-            for(int index = 0; index < 10; ++index)
+            fseek( file, SN5**2, SEEK_SET); //alinear el puntero del SN a la posición del archivo
+          
+            //intentar de leer el archivo
+            if(fread package+4, package, PACK_TRHOUHPUT > 0)
+            { 
+                 package[0] = 0; //sn
+                data.seq_num = SN;
+                strncpy(package+1,data.str,3);
+                insert_after(&list, package); //hace un append a la lista y aumenta el SN
+                SN++;
+              
+            }
+            else //si se pudo leer pero no hay campo, solo se hace append a la lista con *
             {
                 package[0] = 0;
-                package[3] = index;
-                
-                if(fread( package+4, 512, 1, file) > 0)
-                {
-                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
-                }
-                else
-                {
-                    end_flag = 1;
-                }
-            }      
-            
-            usleep(800000); //time-out simulation
+                pdata.seq_num = SN;
+                strncpy(package+1,data.str,3);                
+                insert_after(&list, package);     
+            }
+                      
+            //verificar recepción de ack's
             recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
             
-            if(package[0] == 1) 
+            if ( package[0] == 1 )//si es un rn y el ack del rn es mayor a mi rn actual, elimino de la lista los elementos de menor secuencia
             {
-                int seq_num;
-                char tmp[4];
-                tmp[0] = 0;
-                tmp[1] = package[1];
-                tmp[2] = package[2];
-                tmp[3] = package[3];
-                seq_num = (int)tmp;
-                
-				//manejo de cola
-				if( SN < seq_num )
-				{
-					SN = seq_num;
-				}
+
+                strncpy(data.str,package+1,3); //recupero el seqnum                if( pdata.seq_num> RN )//si RN del ACK > RN actual
+                {
+                  int ck_RN;  = data.seq_num  
+                  flush( &list, RN, ack_RN );
+
+                  RN = ack_RN; //actualizo mi RN al de recepción tras borrar los anteriores                }
             }
+          
+            usleep(800000); //time-out simulation
             
+            //manda todos los mensajes actualmente en la lista
 
-
-            usleep(400000);
-
-            
-        }
-        printf("Salí del ciclo\n");
+            for(int index = list.first; index < list.last; ++index)
+            {
+                strncpy( package, list.recv_matrix[lindex], 516 );
+                sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+            }
+          
+       }
+       printf("DONE!\n");
     }
     
      //child (reciever)

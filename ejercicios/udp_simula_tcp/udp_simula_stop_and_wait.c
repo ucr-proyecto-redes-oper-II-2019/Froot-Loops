@@ -124,9 +124,11 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
         printf("Salí del ciclo\n");
     }
     
-    //child (reciever)
+     //child (reciever)
     if(cpid == 0)
     {
+      
+      	union Data data;
         
         FILE* copy_file;
         copy_file = fopen("payaso.jpg" , "wr" );
@@ -134,8 +136,30 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
         other.sin_addr.s_addr = inet_addr(argv[3]); //IP destino se especifica en el 2 parametro de linea de comando
         other.sin_port = htons(atoi(argv[4]));
         
-        queue_t q;
-        queueInit(&q);
+        RN = 1;
+      
+      	//Se espera por el hadshake del emisor
+      	while(!handshake_recv)
+        { 
+          recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
+          
+          strncpy(data.str,package+1,3);
+  
+           if(data.seq_num == 0)
+           {
+             handshake_recv = true;
+             package[0] = 1;
+             ++data.seq_num;
+             strncpy(package+1,data.str,3);
+             sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+           }
+          
+           sleep(1);
+           
+        }
+      
+        list_t list;
+        list_init(&list);
         
         while(!end_flag)
         {
@@ -145,51 +169,56 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
             {
                 if(package[0] == 0)
                 {
-                    int seq_num;
-                    char tmp[4];
-                    tmp[0] = 0;
-                    tmp[1] = package[1];
-                    tmp[2] = package[2];
-                    tmp[3] = package[3];
-                    seq_num = (int)tmp;	
-                    
-                    //RN es el número de secuencia que el receptor está esperando
-                    //SN es el número de secuencia que el emisor está enviando actualmente
-                    if( seq_num <= RN + PACKAGE_LIMIT-1 )
+                    if(insert_after(&list, package) > 0)
                     {
-                        enQueue(&q ,package);
-                    }	
-                    
-                    //strncpy(recv_matrix[seq_num],package+4,PACK_THROUGHPUT);//Dentro de la cola (hacer copia de los 512 bytes)
-                    
-                    strncpy(package, queueFirst(&q), 516);
-                    if( seq_num == RN )
-                    {
-                        fwrite( queueFirst(&q)+4, 1 , PACK_THROUGHPUT , copy_file );
-                        deQueue(&q);
-                        ++RN;
+                      	++RN;
                     }
-                    //q.first()->[0] = 1;
-                    package[0] = 1;//decir que es un RN
+                  
+                  	if(list_is_ready(&list))
+                    {
+						write_list(list,copy_file);
+                    }
+
+                    usleep(400000);
+
+                    package[0] = 1;
+                    data.seq_num = RN;
+                    strncpy(package+1,data.str,3);
+                    
                     sendto( sockfd, package ,PACK_SIZE, 0, (struct sockaddr*)&other, len );
-                }
-            } 	
-            
-            if(  queueFirst(&q)[516] == '*' ) //el último byte del jpg nunca puede ser '*', es el token de finalizar comunicación
+         
+            if(  list.rear[4] == '*' ) //el último byte del jpg nunca puede ser '*', es el token de finalizar comunicación
             {
                 end_flag = true;
             }
-            
-            usleep(400000);
-            
+
         }
-        
-        
-        
+  
     }
     
     close(sockfd);
     
     return 0;
     
+}
+
+//Función que escribe los datos de la lista en el archivo
+void write_list(lists_t* list,FILE* file);
+{
+	for(int i = list.front, i < list.rear,++i)
+	{
+		fwrite( pop(list)+4, 1 , PACK_THROUGHPUT , file);
+	}
+	
+}
+
+//Función flush bota de la lista los packages con secuencia menor al ack recibido
+void flush( list_t* list, int my_RN, int ack_RN )
+{
+  while ( my_RN < ack_RN )
+  {
+    pop( &list );
+    my_RN++;
+  }
+  //jajasalu2
 }

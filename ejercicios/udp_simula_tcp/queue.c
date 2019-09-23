@@ -14,8 +14,9 @@ void list_init(list_t* queue)// initialize the list
   queue->front = -1;
   queue->rear = -1;
   queue->size = PACKAGE_LIMIT;
-  queue->ack_array = (int* ) calloc(PACKAGE_LIMIT, sizeof(int));
   queue->recv_matrix = (char** )calloc(PACKAGE_LIMIT, sizeof(char* ));
+
+  bzero(queue->ack_array,10);
 
   for(int index = 0; index < PACKAGE_LIMIT; index++)
   {
@@ -45,6 +46,7 @@ int insert_after(list_t* queue, char* package)//insert package to its respective
     {
       strncpy( queue->recv_matrix[package_index], package, PACKAGE_SIZE );//add it to the list
       queue->rear++;//advance the window
+      queue->ack_array[queue->rear] = true;
     }
   }
   return EXIT_SUCCESS;
@@ -71,14 +73,21 @@ char* pop(list_t* queue)
   //manage the list's front pointer depending on the situation
   if (queue->front == queue->rear)// if list is just 1 element big
   {
+    queue->ack_array[queue->front] = false;
     queue->front = -1;
     queue->rear = -1;
   }
   else if (queue->front == (queue->size)-1)//this is what it makes the list circular, if front is at the end of list
   //it resets and goes back to the beggining
+  {
+    queue->ack_array[queue->front] = false;
     queue->front = 0;
+  }
   else
+  {
+    queue->ack_array[queue->front] = false;
     queue->front++; //window just shrinks
+  }
 
   return data;
 }
@@ -148,6 +157,4 @@ void queueDestroy(list_t* queue)
     free(queue->recv_matrix[index]);
   }
   free(queue->recv_matrix);
-
-  free(queue->ack_array);
 }

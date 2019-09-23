@@ -6,7 +6,7 @@ typedef struct
 {
   //rear is the end of the window (f)
   //front is the beggining of the window (i)
-  int* ack_array;
+  int ack_array[10];
   int rear, front;
   int size;
   char** recv_matrix;

@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/wait.h> 
 #include <netinet/in.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -30,12 +31,11 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
     
     if(argc < 6)
     {
-        printf("Not enough arguments given\n Usage: ./client <my_IP> <my_port> <receptor_id> <receptor_port> <file_path> \n");
+        printf("Not enough arguments given\n Usage: ./client <my_IP> <my_port> <receptor_ip> <receptor_port> <file_path> \n");
         return 0;
     }
     
-    FILE* file;
-    file = fopen(argv[5], "rb");
+
     
     pid_t cpid; //create child id
     
@@ -72,6 +72,9 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
     //parent (emisor)
     if(cpid != 0)
     {
+		
+		FILE* file;
+		file = fopen(argv[5], "rb");
         
         other.sin_addr.s_addr = inet_addr(argv[3]); //IP destino se especifica en el 2 parametro de linea de comando
         other.sin_port = htons(atoi(argv[4]));
@@ -117,6 +120,13 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                 data.seq_num = SN;
                 strncpy(package+1,data.str,3);
                 insert_after(&list, package);
+              
+                if( list.front == -1 ) //lista está vacia
+                {
+                    package[0] = 0;
+                    package[4] = '*';
+                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+                }
             }
 
             //verificar recepción de ack's
@@ -143,9 +153,13 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                     sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                 }
             }
+          
+            
 
         }
         printf("DONE!\n");
+        fclose(file);
+        queueDestroy(&list);
     }
     
     //child (reciever)
@@ -193,7 +207,7 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
             {
                 if(package[0] == 0)
                 {
-                    if(insert_after(&list, package) > 0)
+                    if(insert_after(&list, package) == 0)
                     {
                         ++RN;
                     }
@@ -219,12 +233,21 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                 }
 
             }
-
-            close(sockfd);
-
-            return 0;
+          
+          	
         }
+      	queueDestroy(&list);
+      	fclose(copy_file);
+      	
     }
+  
+  if(cpid != 0)
+  {
+    wait(NULL);
+  }
+
+  close(sockfd);
+  return 0;
 }
 
 //Función que escribe los datos de la lista en el archivo

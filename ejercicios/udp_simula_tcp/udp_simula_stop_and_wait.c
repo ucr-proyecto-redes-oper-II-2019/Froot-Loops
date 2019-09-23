@@ -20,12 +20,8 @@
 #define PACK_THROUGHPUT 512 //cantidad de datos de todo el paquete (throughput)
 #define PACKAGE_LIMIT 10 //package batch limit
 
-union Data {
-   int seq_num;
-   char str[4];
-} data;
 
-void write_list(lists_t* list,FILE* file);
+void write_list(list_t* list,FILE* file);
 void flush( list_t* list, int my_RN, int ack_RN );
 
 // Driver code
@@ -38,7 +34,7 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
         return 0;
     }
     
-    FILE* file; 
+    FILE* file;
     file = fopen(argv[5], "rb");
     
     pid_t cpid; //create child id
@@ -49,6 +45,7 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
     int SN = 0;
     struct sockaddr_in me, other;
     int end_flag = 0;
+    int handshake_recv = 0;
     
     // Limpia el registro
     bzero(&me, sizeof(me));
@@ -81,81 +78,81 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
 
         union Data data;
         list_t list;
-        init_list(&list);        
+        list_init(&list);
+
         //handshake
         bzero(&package, PACK_SIZE);
         sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
-      
-        int handshake_recv = 0;
+
         while(!handshake_recv)
-        { 
-           recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
+        {
+            recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
             strncpy(data.str,package+1,3);
-           if((data.eq_num == 1)
-           {
-             handshake_recv = true;
-           }
-           sleep(1);
-           sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+            if( data.seq_num == 1 )
+            {
+                handshake_recv = true;
+            }
+            sleep(1);
+            sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
         }
         //end handshake
-         while(!end_flag)
+        while(!end_flag)
         {
             package[0] = 0; //indicar que es un SN
-            fseek( file, SN*PACK_THRHOUGHPUT, SEEK_SET); //alinear el puntero del SN a la posición del archivo
-          
+            fseek( file, SN*PACK_THROUGHPUT, SEEK_SET); //alinear el puntero del SN a la posición del archivo
+
             //intentar de leer el archivo
-            if(fread package+4, package, PACK_TRHOUHPUT > 0)
-            { 
+            if( fread(package+4, PACK_THROUGHPUT, 1, file) > 0)
+            {
                 package[0] = 0; //sn
                 data.seq_num = SN;
                 strncpy(package+1,data.str,3);
                 insert_after(&list, package); //hace un append a la lista y aumenta el SN
                 SN++;
-              
+
             }
             else //si se pudo leer pero no hay campo, solo se hace append a la lista con *
             {
                 package[0] = 0;
                 data.seq_num = SN;
-                strncpy(package+1,data.str,3);                
-                insert_after(&list, package);     
+                strncpy(package+1,data.str,3);
+                insert_after(&list, package);
             }
-                      
+
             //verificar recepción de ack's
             recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
             
             if ( package[0] == 1 )//si es un rn y el ack del rn es mayor a mi rn actual, elimino de la lista los elementos de menor secuencia
             {
-                if( data.seq_num> RN )//si RN del ACK > RN actual           
+                if( data.seq_num> RN )//si RN del ACK > RN actual
                 {
-                  strncpy(data.str,package+1,3); //recupero el seqnum 
-                  int ck_RN;  = data.seq_num  
-                  flush( &list, RN, ack_RN );
+                    strncpy(data.str,package+1,3); //recupero el seqnum
+                    int ack_RN = data.seq_num;
+                    flush( &list, RN, ack_RN );
 
-                  RN = ack_RN; //actualizo mi RN al de recepción tras borrar los anteriores                }
+                    RN = ack_RN; //actualizo mi RN al de recepción tras borrar los anteriores                }
                 }
-          
-            usleep(800000); //time-out simulation
-            
-            //manda todos los mensajes actualmente en la lista
 
-            for(int index = list.first; index < list.last; ++index)
-            {
-                strncpy( package, list.recv_matrix[lindex], 516 );
-                sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+                usleep(800000); //time-out simulation
+
+                //manda todos los mensajes actualmente en la lista
+
+                for(int index = list.front; index < list.rear; ++index)
+                {
+                    strncpy( package, list.recv_matrix[index], 516 );
+                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+                }
             }
-          }
-          
+
         }
-       printf("DONE!\n");
+        printf("DONE!\n");
     }
     
     //child (reciever)
     if(cpid == 0)
     {
-      
-      	union Data data;
+
+        union Data data;
         
         FILE* copy_file;
         copy_file = fopen("payaso.jpg" , "wr" );
@@ -164,27 +161,27 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
         other.sin_port = htons(atoi(argv[4]));
         
         RN = 1;
-      
-      	//Se espera por el hadshake del emisor
-      	while(!handshake_recv)
-        { 
-          recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
-          
-          strncpy(data.str,package+1,3);
-  
-           if(data.seq_num == 0)
-           {
-             handshake_recv = true;
-             package[0] = 1;
-             ++data.seq_num;
-             strncpy(package+1,data.str,3);
-             sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
-           }
-          
-           sleep(1);
-           
+        
+        //Se espera por el hadshake del emisor
+        while(!handshake_recv)
+        {
+            recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
+
+            strncpy(data.str,package+1,3);
+
+            if(data.seq_num == 0)
+            {
+                handshake_recv = true;
+                package[0] = 1;
+                ++data.seq_num;
+                strncpy(package+1,data.str,3);
+                sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+            }
+
+            sleep(1);
+
         }
-      
+
         list_t list;
         list_init(&list);
         
@@ -198,12 +195,12 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                 {
                     if(insert_after(&list, package) > 0)
                     {
-                      	++RN;
+                        ++RN;
                     }
-                  
-                  	if(list_is_ready(&list))
+
+                    if(is_ready(&list))
                     {
-						write_list(list,copy_file);
+                        write_list(&list,copy_file);
                     }
 
                     usleep(400000);
@@ -213,40 +210,41 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                     strncpy(package+1,data.str,3);
                     
                     sendto( sockfd, package ,PACK_SIZE, 0, (struct sockaddr*)&other, len );
-         
-            if(  list.rear[4] == '*' ) //el último byte del jpg nunca puede ser '*', es el token de finalizar comunicación
-            {
-                end_flag = true;
+
+                    if(  list.recv_matrix[list.rear][4] == '*' ) //el último byte del jpg nunca puede ser '*', es el token de finalizar comunicación
+                    {
+                        end_flag = true;
+                    }
+
+                }
+
             }
 
+            close(sockfd);
+
+            return 0;
         }
-  
     }
-    
-    close(sockfd);
-    
-    return 0;
-    
 }
 
 //Función que escribe los datos de la lista en el archivo
-void write_list(lists_t* list,FILE* file);
+void write_list(list_t* list, FILE* file)
 {
-	for(int i = list.front, i < list.rear,++i)
-	{
-		fwrite( pop(list)+4, 1 , PACK_THROUGHPUT , file);
-	}
-	
+    for(int i = list->front; i < list->rear; ++i)
+    {
+        fwrite( pop(list)+4, 1 , PACK_THROUGHPUT , file);
+    }
+
 }
 
 //Función flush bota de la lista los packages con secuencia menor al ack recibido
 void flush( list_t* list, int my_RN, int ack_RN )
 {
-  while ( my_RN < ack_RN )
-  {
-    pop( &list );
-    my_RN++;
-  }
-  //jajasalu2
+    while ( my_RN < ack_RN )
+    {
+        pop( list );
+        my_RN++;
+    }
+    //jajasalu2
 }
 

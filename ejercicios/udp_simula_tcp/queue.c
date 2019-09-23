@@ -151,9 +151,3 @@ void queueDestroy(list_t* queue)
 
   free(queue->ack_array);
 }
-
-int main()
-{
-
-  return 0;
-}

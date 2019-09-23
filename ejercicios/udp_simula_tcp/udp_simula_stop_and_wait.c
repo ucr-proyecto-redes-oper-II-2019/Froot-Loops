@@ -1,4 +1,4 @@
-include <stdio.h>
+#include <stdio.h>
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -102,12 +102,12 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
          while(!end_flag)
         {
             package[0] = 0; //indicar que es un SN
-            fseek( file, SN5**2, SEEK_SET); //alinear el puntero del SN a la posición del archivo
+            fseek( file, SN*PACK_THRHOUGHPUT, SEEK_SET); //alinear el puntero del SN a la posición del archivo
           
             //intentar de leer el archivo
             if(fread package+4, package, PACK_TRHOUHPUT > 0)
             { 
-                 package[0] = 0; //sn
+                package[0] = 0; //sn
                 data.seq_num = SN;
                 strncpy(package+1,data.str,3);
                 insert_after(&list, package); //hace un append a la lista y aumenta el SN
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
             else //si se pudo leer pero no hay campo, solo se hace append a la lista con *
             {
                 package[0] = 0;
-                pdata.seq_num = SN;
+                data.seq_num = SN;
                 strncpy(package+1,data.str,3);                
                 insert_after(&list, package);     
             }
@@ -127,14 +127,14 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
             
             if ( package[0] == 1 )//si es un rn y el ack del rn es mayor a mi rn actual, elimino de la lista los elementos de menor secuencia
             {
-
-                strncpy(data.str,package+1,3); //recupero el seqnum                if( pdata.seq_num> RN )//si RN del ACK > RN actual
+                if( data.seq_num> RN )//si RN del ACK > RN actual           
                 {
+                  strncpy(data.str,package+1,3); //recupero el seqnum 
                   int ck_RN;  = data.seq_num  
                   flush( &list, RN, ack_RN );
 
                   RN = ack_RN; //actualizo mi RN al de recepción tras borrar los anteriores                }
-            }
+                }
           
             usleep(800000); //time-out simulation
             
@@ -145,12 +145,13 @@ int main(int argc, char* argv[]) //agrg[1] = my_IP, argv[2] = my_port, argv[3] =
                 strncpy( package, list.recv_matrix[lindex], 516 );
                 sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
             }
+          }
           
-       }
+        }
        printf("DONE!\n");
     }
     
-     //child (reciever)
+    //child (reciever)
     if(cpid == 0)
     {
       
@@ -248,3 +249,4 @@ void flush( list_t* list, int my_RN, int ack_RN )
   }
   //jajasalu2
 }
+

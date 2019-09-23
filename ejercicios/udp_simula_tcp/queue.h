@@ -4,23 +4,34 @@
 //la cola tiene que ser una estructura de tamano 11 que contenga paquetes de 516
 typedef struct
 {
+  //rear is the end of the window (f)
+  //front is the beggining of the window (i)
+  int* ack_array;
   int rear, front;
   int size;
   char** recv_matrix;
-}queue_t;
+}list_t;
 
-void queueInit(queue_t* queue);// initialize the queue
+union Data
+{
+  int seq_num;
+  char str[4];
+}data;
 
-int enQueue(queue_t* queue, char* package);//add a 516B package
+void list_init(list_t* queue);// initialize the queue
 
-char* deQueue(queue_t* queue);// return the pointer to the package in the front
+int insert_after(list_t* queue, char* package);//add a 516B package
 
-char* queueFirst(queue_t* queue);// returns first package in queue
+char* pop(list_t* queue);// return the pointer to the package in the front
 
-char* queueLast(queue_t* queue);// returns last package in queue
+char* queueFirst(list_t* queue);// returns first package in queue
 
-void displayQueue(queue_t* queue);
+char* queueLast(list_t* queue);// returns last package in queue
 
-void queueDestroy(queue_t* queue);
+int is_ready(list_t* queue_t);
+
+void displayQueue(list_t* queue);
+
+void queueDestroy(list_t* queue);
 
 #endif //QUEUE_H

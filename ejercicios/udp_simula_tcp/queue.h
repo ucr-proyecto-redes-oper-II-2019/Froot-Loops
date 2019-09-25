@@ -20,18 +20,18 @@ union Data
 
 void list_init(list_t* queue);// initialize the queue
 
-int insert_after(list_t* queue, char* package);//add a 516B package
+int insert(list_t* queue, char* package);// add a 516B package
 
 char* pop(list_t* queue);// return the pointer to the package in the front
 
-char* queueFirst(list_t* queue);// returns first package in queue
+char* first(list_t* queue);// returns first package in queue
 
-char* queueLast(list_t* queue);// returns last package in queue
+char* last(list_t* queue);// returns last package in queue
 
 int is_ready(list_t* queue_t);
 
-void displayQueue(list_t* queue);
+void display_list(list_t* queue);
 
-void queueDestroy(list_t* queue);
+void qestroy(list_t* queue);
 
 #endif //QUEUE_H

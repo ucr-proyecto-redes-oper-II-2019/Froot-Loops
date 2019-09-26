@@ -32,6 +32,6 @@ int is_ready(list_t* queue_t);
 
 void display_list(list_t* queue);
 
-void qestroy(list_t* queue);
+void destroy(list_t* queue);
 
 #endif //QUEUE_H

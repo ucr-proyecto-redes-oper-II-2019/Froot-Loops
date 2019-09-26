@@ -47,11 +47,11 @@ int insert(list_t* queue, char* package)//insert package to its respective place
 
       strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
       printf("Estoy agregando el paquete %d\n", data.seq_num);
-      queue->ack_array[queue->rear] = true;
+      queue->ack_array[queue->rear] = true;//mark it as written
       return EXIT_SUCCESS;
     }
-    //if the list is full on the end but there's space at the begginig of the list
-    else if (queue->rear == queue->size-1 && queue->front == 0)
+    //if the list is full on the end but there's still space at the begginig of the list
+    else if (queue->rear == queue->size-1 && queue->front != 0)
     {
       //if the package's seq_num does not overlap the list's size and if the package has not yet been received, handle it
       if ((data.seq_num < (queue->recv_matrix[queue->front][1] + PACKAGE_SIZE)) && (strncmp(queue->recv_matrix[queue->rear], package, PACKAGE_SIZE ) != 0))
@@ -60,7 +60,7 @@ int insert(list_t* queue, char* package)//insert package to its respective place
 
         strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
         printf("Estoy agregando el paquete %d\n", data.seq_num);
-        queue->ack_array[queue->rear] = true;
+        queue->ack_array[queue->rear] = true;//mark it as written
       }
       return EXIT_SUCCESS;
     }
@@ -68,14 +68,14 @@ int insert(list_t* queue, char* package)//insert package to its respective place
     else
     {
       //calculate index in which the package shall be placed
-      int package_index = data.seq_num % ((queue->front - queue->rear) + 1);
+      int package_index = data.seq_num % (abs(queue->front - queue->rear) + 1);
 
-      //if the package has not yet been received, add it to the list and if the package's seq_num does not overlap the list's size, then handle it
+      //if the package has not yet been received, add it to the list and if the package's seq_num does not overlap the list's size, then insert it
       if ((strncmp(queue->recv_matrix[package_index], package, PACKAGE_SIZE ) != 0) && (data.seq_num < (queue->recv_matrix[queue->front][1] + PACKAGE_SIZE)))
       {
         strncpy( queue->recv_matrix[package_index], package, PACKAGE_SIZE );//add it to the list
         printf("Estoy agregando el paquete %d\n", data.seq_num);
-        queue->ack_array[queue->rear] = true;
+        queue->ack_array[queue->rear] = true;//mark it as written
         queue->rear++;//advance the window
       }
       return EXIT_SUCCESS;
@@ -95,11 +95,8 @@ char* pop(list_t* queue)
   strcpy( data, "izi");*/
 
   //variable to hold data to be shown when user pops the first element of the list
-  char* data = (char*)malloc(PACKAGE_SIZE*(sizeof(char)));
-  strncpy( data, queue->recv_matrix[queue->front], PACKAGE_SIZE );
-
-  //stablish and asign a neutral value to put in the list when the element is popped
-  queue->recv_matrix[queue->front] = 0;
+  char* data = queue->recv_matrix[queue->front];
+  //strncpy( data, queue->recv_matrix[queue->front], PACKAGE_SIZE );
 
   //handle the list's front pointer depending on the situation
   if (queue->front == queue->rear)// if list is just 1 element big
@@ -109,7 +106,7 @@ char* pop(list_t* queue)
     queue->rear = -1;
   }
   else if (queue->front == (queue->size)-1)//this is what it makes the list circular, if front is at the end of list
-  //it resets and goes back to the beggining
+  //it resets and goes back to the beggining of the list
   {
     queue->ack_array[queue->front] = false;
     queue->front = 0;
@@ -119,7 +116,6 @@ char* pop(list_t* queue)
     queue->ack_array[queue->front] = false;
     queue->front++; //window just shrinks
   }
-
   return data;
 }
 
@@ -137,7 +133,7 @@ char* last(list_t* queue)
 int is_ready(list_t* queue)
 {
   int is_ready = false;
-  int list_size = (queue->front - queue->rear);
+  int list_size = abs(queue->front - queue->rear);
   int ready_count = 0;
 
   //check every slot of ack array in the window range to see if every slot is true

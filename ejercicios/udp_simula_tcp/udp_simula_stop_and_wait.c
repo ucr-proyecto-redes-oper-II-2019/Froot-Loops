@@ -1,3 +1,10 @@
+/*
+Grupo: Froot Loops
+Integrantes:
+Daniel Barrantes
+Antonio Alvarez
+Steven Barahona 
+*/
 #include <stdio.h>
 #include <strings.h>
 #include <sys/types.h>
@@ -11,7 +18,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <omp.h>
-#include "queue.c"
+#include "list.c"
 #include <time.h>
 typedef struct timespec walltime_t;
 
@@ -64,9 +71,10 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         exit(EXIT_FAILURE);
     }
 
-    if(cpid != 0)//father process(sender)
+    if(cpid != 0 && argv[5])//father process(sender)
     {
-
+		printf("Holi soy sender\n");
+		
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
         char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
         list_t list;
@@ -78,8 +86,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         int continue_flag = 0;
         int give_up_flag = 0;
         int wait_flag = true;
-        union Data data;
-
+        
         int len = sizeof(child);
 
         // create datagram socket
@@ -97,63 +104,65 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
             {
                 FILE * file;
                 file = fopen(argv[5], "rb");
-                int write_flag = false;
-
-
                 end_flag = false;
                 char tmp[PACK_THROUGHPUT];
                 while(!end_flag)
                 {
-                    write_flag = false;
-
-                    if( fread(tmp, PACK_THROUGHPUT, 1, file) > 0)
+                    while(check_emptyness(data_block,PACK_THROUGHPUT) )
                     {
-                        while(!write_flag)
-                        {
-                            if(check_emptyness(data_block,PACK_THROUGHPUT))
-                            {
-								#pragma omp critical (shared_buffer)
-                                {
-                                    strncpy(data_block,tmp,PACK_THROUGHPUT);
-                                }
-                                write_flag = true;
-                            }
-                        }
+						printf("Sender: Había cambo en data block\n");
+						if(fread(tmp, PACK_THROUGHPUT, 1, file) > 0)
+						{
+							#pragma omp critical (shared_buffer)
+							{
+								strncpy(data_block,tmp,PACK_THROUGHPUT);
+							}
+							printf("Sender: Pude escribir en data block\n");
+						}
+						else
+						{
+							end_flag = true;
+						}
+							
                     }
-                    else
-                    {
-                        end_flag = true;
-                    }
+                   
                 }
 
                 fclose(file);
                 last_package_read = true;
+                
+                printf("Thread 0 terminó de leer el archivo\n");
 
             }
             else if(my_thread_n == 1)
             {
-
+			
+				union Data data;
+				data.seq_num = 0;
+					
                 while(!last_package_read)
                 {
 
-					#pragma omp critical (list_queuer)
+					#pragma omp critical (list_jajaxd)
                     {
                         if( !(check_emptyness(data_block, PACK_THROUGHPUT)) )
                         {
-
+							//empaquetamiento
+							package[0] = 0;//Indica que es un SN
                             strncpy(package+4, data_block, PACK_THROUGHPUT );
-                            bzero(data_block, PACK_THROUGHPUT);
-
-                            //empaquetamiento
-                            package[0] = 0;//Indica que es un SN
-
+  
                             data.seq_num = SN;
-                            strncpy( package+3, data.str, 3 );
-
-                            while(insert(&list, package) == -1)//asegurarse que el paquete sea metido a la estructura de datos
+                            printf("El sq es %d\n",SN);
+                            strncpy( package+1, data.str, 3 );
+                            //insert(&list, package);
+                            
+                            while(insert(&list, package) == -1)
                             {
-                                usleep(5000000);
-                            }
+								usleep(500000);
+								
+							}
+							
+							bzero(data_block, PACK_THROUGHPUT);
                             SN++;
                         }
 
@@ -171,15 +180,17 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 
                     }
                 }
-
+				//free(package);
 
             }
             else if(my_thread_n == 2)
             {
                 //intentar de enviar los paquetes disponibles
                 int end_flag = 0;
+                union Data data;
+                data.seq_num = 0;
 
-                while(!end_flag && !last_package_read && ( list.front != -1 ) )
+                while(!end_flag && !last_package_read && !(is_empty(&list)) )
                 {
 
 					#pragma omp critical (sender_reciever)
@@ -193,9 +204,11 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                         int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&child, &len); //recivir un ack
                         if(check)
                         {
-                            strncpy(data.str, package+3, 3);
+                            strncpy(data.str, package+1, 3);
+                            printf("Haciendo flush, antes en SN: %d \n", SN);
                             flush(&list, RN, data.seq_num); //flush rn's menores que el ack más reciente
-                            RN = data.seq_num;
+                            SN = data.seq_num;
+                            printf("Haciendo flush, después en SN: %d \n", SN);
                         }
                     }
                 }
@@ -226,12 +239,12 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         close(sockfd);
         destroy(&list);
         free(data_block);
-        free(package);
+        //free(str);
 
     }
-    else//Child process start(reciever)
+    else if(argv[5] == 0 && cpid == 0)//Child process start(reciever)
     {
-
+		printf("Soi reciever jejeps\n");
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
         char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
         list_t list;
@@ -282,6 +295,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                     sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&child, len);
                     usleep(500000);
                 }//after 60s, i give up :c
+                printf("Salí del juail\n");
 
                 //giveup time (intentar de mandar el ack cierto tiempo)
             }
@@ -309,7 +323,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
             else if(my_thread_n == 2)
             {
                 FILE* cpy_file;
-                cpy_file = fopen("larry.jpg", "wr");
+                cpy_file = fopen("copia.jpg", "wr");
 
                 while( !last_package_read && !check_emptyness(data_block, PACK_THROUGHPUT) )
                 {

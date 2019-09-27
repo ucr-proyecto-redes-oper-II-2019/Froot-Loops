@@ -1,6 +1,12 @@
-#ifndef QUEUE_H
-#define QUEUE_H
-
+#ifndef LIST_H
+#define LIST_H
+/*
+Grupo: Froot Loops
+Integrantes:
+Daniel Barrantes
+Antonio Alvarez
+Steven Barahona 
+*/
 //la cola tiene que ser una estructura de tamano 11 que contenga paquetes de 516
 typedef struct
 {
@@ -33,5 +39,7 @@ int is_ready(list_t* queue_t);
 void display_list(list_t* queue);
 
 void destroy(list_t* queue);
+
+int is_empty(list_t* queue);
 
 #endif //QUEUE_H

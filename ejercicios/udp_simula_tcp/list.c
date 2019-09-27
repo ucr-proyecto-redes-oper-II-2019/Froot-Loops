@@ -1,4 +1,11 @@
-#include "queue.h"
+/*
+Grupo: Froot Loops
+Integrantes:
+Daniel Barrantes
+Antonio Alvarez
+Steven Barahona 
+*/
+#include "list.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +15,7 @@
 #define true 1
 #define false 0
 
+int is_repeated(list_t* list, char* package);
 
 void list_init(list_t* queue)// initialize the list
 {
@@ -30,7 +38,9 @@ int insert(list_t* queue, char* package)//insert package to its respective place
   //this is used to control the package header (first 4B)
   union Data data;
   strncpy(data.str, package+1, 3);// we only care about the last 3B becuase it refers to the sequence number of the package
-
+  int pack_seq_num = data.seq_num;
+  
+  
   //check if list is full
   if ((queue->front == 0 && queue->rear == queue->size-1) || (queue->rear == (queue->front-1)%(queue->size-1)))
   {
@@ -46,39 +56,54 @@ int insert(list_t* queue, char* package)//insert package to its respective place
       queue->rear = 0;
 
       strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
-      printf("Estoy agregando el paquete %d\n", data.seq_num);
+      //strncpy(data.str,package+1,3);
+      printf("Estoy agregando el paquete caso 1 %d\n", pack_seq_num);
       queue->ack_array[queue->rear] = true;//mark it as written
       return EXIT_SUCCESS;
     }
     //if the list is full on the end but there's still space at the begginig of the list
     else if (queue->rear == queue->size-1 && queue->front != 0)
     {
+      //get the seq_num
+      strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
+  
       //if the package's seq_num does not overlap the list's size and if the package has not yet been received, handle it
-      if ((data.seq_num < (queue->recv_matrix[queue->front][1] + PACKAGE_SIZE)) && (strncmp(queue->recv_matrix[queue->rear], package, PACKAGE_SIZE ) != 0))
+      if ((pack_seq_num < (data.seq_num + PACKAGE_LIMIT) && !is_repeated(queue,package)))
       {
         queue->rear = 0;
-
         strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
-        printf("Estoy agregando el paquete %d\n", data.seq_num);
+        printf("Estoy agregando el paquete caso 2 %d\n", pack_seq_num);
         queue->ack_array[queue->rear] = true;//mark it as written
+        
+        return EXIT_SUCCESS;//return 0
       }
-      return EXIT_SUCCESS;
+      else
+      {
+        return -1; //could not insert package
+      }
+      
     }
     //otherwise just insert the package on the corresponding index (position)
     else
     {
       //calculate index in which the package shall be placed
-      int package_index = data.seq_num % (abs(queue->front - queue->rear) + 1);
+      int package_index = pack_seq_num % (abs(queue->front - queue->rear) + 1);
+      
+      strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
 
       //if the package has not yet been received, add it to the list and if the package's seq_num does not overlap the list's size, then insert it
-      if ((strncmp(queue->recv_matrix[package_index], package, PACKAGE_SIZE ) != 0) && (data.seq_num < (queue->recv_matrix[queue->front][1] + PACKAGE_SIZE)))
+      if (!is_repeated(queue,package) && pack_seq_num < (data.seq_num + PACKAGE_LIMIT))
       {
         strncpy( queue->recv_matrix[package_index], package, PACKAGE_SIZE );//add it to the list
-        printf("Estoy agregando el paquete %d\n", data.seq_num);
+        printf("Estoy agregando el paquete caso 3 %d\n", pack_seq_num);
         queue->ack_array[queue->rear] = true;//mark it as written
         queue->rear++;//advance the window
+        return EXIT_SUCCESS;// return 0
       }
-      return EXIT_SUCCESS;
+      else
+      {
+        return -1; //could not insert package
+      }
     }
   }
 }
@@ -96,6 +121,10 @@ char* pop(list_t* queue)
 
   //variable to hold data to be shown when user pops the first element of the list
   char* data = queue->recv_matrix[queue->front];
+
+  union Data tmp;
+  strncpy(tmp.str, queue->recv_matrix[queue->front]+1, 3);
+
   //strncpy( data, queue->recv_matrix[queue->front], PACKAGE_SIZE );
 
   //handle the list's front pointer depending on the situation
@@ -104,17 +133,20 @@ char* pop(list_t* queue)
     queue->ack_array[queue->front] = false;
     queue->front = -1;
     queue->rear = -1;
+    printf("List: Pooping element case 1 no.%d \n", tmp.seq_num);
   }
   else if (queue->front == (queue->size)-1)//this is what it makes the list circular, if front is at the end of list
   //it resets and goes back to the beggining of the list
   {
     queue->ack_array[queue->front] = false;
     queue->front = 0;
+    printf("List: Pooping element case 2 no.%d \n", tmp.seq_num);
   }
   else
   {
     queue->ack_array[queue->front] = false;
     queue->front++; //window just shrinks
+    printf("List: Pooping element case 3 no.%d \n", tmp.seq_num);
   }
   return data;
 }
@@ -178,10 +210,36 @@ void display_list(list_t* queue)
 
 void destroy(list_t* queue)
 {
-
   for(int index = 0; index < PACKAGE_LIMIT; ++index)
   {
     free(queue->recv_matrix[index]);
   }
   free(queue->recv_matrix);
 }
+
+int is_empty(list_t* queue)
+{
+	if (queue->front == -1)
+		return true;
+	else
+		return false;
+}
+          
+int is_repeated(list_t* list, char* package)
+{
+  union Data data;
+  strncpy(data.str, package+1, 3);
+  int pack_seq_num = data.seq_num;
+  
+  for (int index = 0; index < list->size; index++)
+  {
+    if (list->ack_array[index] == true)
+    {
+      strncpy(data.str, list->recv_matrix[index]+1, 3);
+      if (pack_seq_num == data.seq_num)
+        return true;
+    }
+  }
+  return false;
+}          
+              

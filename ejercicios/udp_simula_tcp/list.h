@@ -42,4 +42,6 @@ void destroy(list_t* queue);
 
 int is_empty(list_t* queue);
 
+char* my_strncpy(char *dest, const char *src, int n);
+
 #endif //QUEUE_H

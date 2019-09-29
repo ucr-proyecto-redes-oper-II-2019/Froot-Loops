@@ -28,7 +28,8 @@ void list_init(list_t* queue)// initialize the list
 
   for(int index = 0; index < PACKAGE_LIMIT; index++)
   {
-	queue->recv_matrix[index] =  (char *) calloc(PACKAGE_SIZE, sizeof(char));
+	queue->recv_matrix[index] =  (char*) calloc(PACKAGE_SIZE, sizeof(char));
+	
   }
 
 }
@@ -39,7 +40,7 @@ int insert(list_t* queue, char* package)//insert package to its respective place
   union Data data;
   data.seq_num = 0;
   //int repeated_flag = 0;
-  strncpy(data.str, package+1, 3);// we only care about the last 3B becuase it refers to the sequence number of the package
+  my_strncpy(data.str, package+1, 3);// we only care about the last 3B becuase it refers to the sequence number of the package
   int pack_seq_num = data.seq_num;
   
   
@@ -56,8 +57,17 @@ int insert(list_t* queue, char* package)//insert package to its respective place
     {
       queue->front = 0;
       queue->rear = 0;
+      
+     
+	 // printf("Estos son los datos que insertaré en la lista: %s\n",package+4);
+	  
 
-      strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
+      my_strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
+      
+  
+      
+    //  printf("Estos son los datos que ya inserté en la lista: %s\n",queue->recv_matrix[queue->rear]+4);
+      
       //strncpy(data.str,package+1,3);
       printf("Estoy agregando el paquete caso 1 %d\n", pack_seq_num);
       queue->ack_array[queue->rear] = true;//mark it as written
@@ -67,13 +77,13 @@ int insert(list_t* queue, char* package)//insert package to its respective place
     else if (queue->rear == queue->size-1 && queue->front != 0)
     {
       //get the seq_num
-      strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
+      my_strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
   
       //if the package's seq_num does not overlap the list's size and if the package has not yet been received, handle it
       if ((pack_seq_num < (data.seq_num + PACKAGE_LIMIT) && !is_repeated(queue,package)))
       {
         queue->rear = 0;
-        strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
+        my_strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
         printf("Estoy agregando el paquete caso 2 %d\n", pack_seq_num);
         queue->ack_array[queue->rear] = true;//mark it as written
         
@@ -89,14 +99,14 @@ int insert(list_t* queue, char* package)//insert package to its respective place
     else
     {
       //calculate index in which the package shall be placed
-      int package_index = pack_seq_num % (abs(queue->front - queue->rear) + 1);
+      int package_index = pack_seq_num % (abs(queue->front - queue->rear) + 2);
       
-      strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
+      my_strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
 
       //if the package has not yet been received, add it to the list and if the package's seq_num does not overlap the list's size, then insert it
       if (!is_repeated(queue,package) && pack_seq_num < (data.seq_num + PACKAGE_LIMIT))
       {
-        strncpy( queue->recv_matrix[package_index], package, PACKAGE_SIZE );//add it to the list
+        my_strncpy( queue->recv_matrix[package_index], package, PACKAGE_SIZE );//add it to the list
         printf("Estoy agregando el paquete caso 3 %d\n", pack_seq_num);
         queue->ack_array[queue->rear] = true;//mark it as written
         queue->rear++;//advance the window
@@ -128,7 +138,7 @@ char* pop(list_t* queue)
 
   union Data tmp;
   tmp.seq_num = 0;
-  strncpy(tmp.str, queue->recv_matrix[queue->front]+1, 3);
+  my_strncpy(tmp.str, queue->recv_matrix[queue->front]+1, 3);
 
   //strncpy( data, queue->recv_matrix[queue->front], PACKAGE_SIZE );
 
@@ -233,18 +243,29 @@ int is_empty(list_t* queue)
 int is_repeated(list_t* list, char* package)
 {
   union Data data;
-  strncpy(data.str, package+1, 3);
+  data.seq_num = 0;
+  
+  my_strncpy(data.str, package+1, 3);
   int pack_seq_num = data.seq_num;
   
   for (int index = 0; index < list->size; index++)
   {
     if (list->ack_array[index] == true)
     {
-      strncpy(data.str, list->recv_matrix[index]+1, 3);
+      my_strncpy(data.str, list->recv_matrix[index]+1, 3);
       if (pack_seq_num == data.seq_num)
         return true;
     }
   }
   return false;
-}          
+}        
+
+char* my_strncpy(char *dest, const char *src, int n)
+{
+   for (int i = 0; i < n; i++)
+	   dest[i] = src[i];
+
+   return dest;
+}
+
               

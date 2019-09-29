@@ -18,7 +18,7 @@ Steven Barahona
 #include <string.h>
 #include <fcntl.h>
 #include <omp.h>
-#include "list.c"
+#include "list.h"
 #include <time.h>
 typedef struct timespec walltime_t;
 
@@ -48,17 +48,17 @@ printf("Time elapsed %.9lfs \n",elapsed);
 
 int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = receptor_ip, argv[4] = receptor_port, argv[5] = file_path
 {
-    struct sockaddr_in father, child;
-    bzero(&father, sizeof(father));
-    bzero(&child, sizeof(child));
+    struct sockaddr_in me, other;
+    bzero(&me, sizeof(me));
+    bzero(&other, sizeof(other));
 
-    father.sin_family = AF_INET;
-    father.sin_addr.s_addr = inet_addr(argv[1]);
-    father.sin_port = htons(atoi(argv[2]));
+    me.sin_family = AF_INET;
+    me.sin_addr.s_addr = inet_addr(argv[1]);
+    me.sin_port = htons(atoi(argv[2]));
 
-    child.sin_family = AF_INET;
-    child.sin_addr.s_addr = inet_addr(argv[3]); //IP destino se especifica en el 2 parametro de linea de comando
-    child.sin_port = htons(atoi(argv[4]));
+    other.sin_family = AF_INET;
+    other.sin_addr.s_addr = inet_addr(argv[3]); //IP destino se especifica en el 2 parametro de linea de comando
+    other.sin_port = htons(atoi(argv[4]));
 
 
 
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         exit(EXIT_FAILURE);
     }
 
-    if(cpid != 0 && argv[5])//father process(sender)
+    if(cpid != 0 && atoi(argv[6]) == 0)//father process(sender)
     {
 		printf("Holi soy sender\n");
 		
@@ -87,13 +87,13 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         int give_up_flag = 0;
         int wait_flag = true;
         
-        int len = sizeof(child);
+        int len = sizeof(other);
 
         // create datagram socket
         int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
         // bind created socket to my addres
-        bind(sockfd, (struct sockaddr *)&father, sizeof(father));
+        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
 
 		#pragma omp parallel num_threads(4) shared(data_block, list)
         {
@@ -108,15 +108,18 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 char tmp[PACK_THROUGHPUT];
                 while(!end_flag)
                 {
-                    while(check_emptyness(data_block,PACK_THROUGHPUT) )
-                    {
+				
+					while(check_emptyness(data_block,PACK_THROUGHPUT) )
+					{
 						printf("Sender: Había cambo en data block\n");
 						if(fread(tmp, PACK_THROUGHPUT, 1, file) > 0)
 						{
+							
 							#pragma omp critical (shared_buffer)
 							{
 								strncpy(data_block,tmp,PACK_THROUGHPUT);
 							}
+							
 							printf("Sender: Pude escribir en data block\n");
 						}
 						else
@@ -124,8 +127,8 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 							end_flag = true;
 						}
 							
-                    }
-                   
+					}
+
                 }
 
                 fclose(file);
@@ -140,10 +143,11 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 				union Data data;
 				data.seq_num = 0;
 					
+				
                 while(!last_package_read)
                 {
 
-					#pragma omp critical (list_jajaxd)
+					#pragma omp critical (list)
                     {
                         if( !(check_emptyness(data_block, PACK_THROUGHPUT)) )
                         {
@@ -159,7 +163,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                             while(insert(&list, package) == -1)
                             {
 								usleep(500000);
-								
+								printf("zii \n");
 							}
 							
 							bzero(data_block, PACK_THROUGHPUT);
@@ -189,7 +193,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 int end_flag = 0;
                 union Data data;
                 data.seq_num = 0;
-
+				sleep(1);//Da tiempo al hilo 1 de poner al menos 1 elemento en la lista
                 while(!end_flag && !last_package_read && !(is_empty(&list)) )
                 {
 
@@ -198,17 +202,22 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                         for(int index = list.front; index < list.rear; ++index) //envía todos los paquetes actualmente en la lista sin eliminarlos de la misma
                         {
                             strncpy(package, list.recv_matrix[index], PACK_SIZE);
-                            sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&child, len);
+                            sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                         }
 
-                        int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&child, &len); //recivir un ack
-                        if(check)
+                        int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len); //recivir un ack
+                        if(check > 0)
                         {
                             strncpy(data.str, package+1, 3);
-                            printf("Haciendo flush, antes en SN: %d \n", SN);
+                            
+                            
+                            printf("Haciendo flush, antes en RN: %d \n", RN);
+                            
                             flush(&list, RN, data.seq_num); //flush rn's menores que el ack más reciente
-                            SN = data.seq_num;
-                            printf("Haciendo flush, después en SN: %d \n", SN);
+                            
+                            RN = data.seq_num;
+                            printf("Haciendo flush, después en RN: %d \n", RN);
+                           
                         }
                     }
                 }
@@ -218,13 +227,14 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 package[4] = '*';
                 while(!give_up_flag)
                 {
-                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&child, len);
+                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                     usleep(500000);
                 }//after 60s, give up :c
 
             }
             else if( my_thread_n == 3)
             {
+				wait_flag = true;
                 while(wait_flag)
                 {
                     sleep(1);
@@ -242,7 +252,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         //free(str);
 
     }
-    else if(argv[5] == 0 && cpid == 0)//Child process start(reciever)
+    else if(atoi(argv[6]) == 1 && cpid == 0)//Child process start(reciever)
     {
 		printf("Soi reciever jejeps\n");
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
@@ -251,16 +261,17 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         list_init(&list);
         int RN = 0; //ack que estoy enviando
         int last_package_read = false;
-        union Data data;
-        int continue_flag = 0;
-        int give_up_flag = 0;
+        //int wait_flag = true;
+       
+        int continue_flag = false;
+        int give_up_flag = false;
 
 
-        int len = sizeof(father);
+        int len = sizeof(other);
         // create datagram socket
         int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
         // bind created socket to my address
-        bind(sockfd, (struct sockaddr *)&child, sizeof(child));
+        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
 
 		#pragma omp parallel num_threads(4) shared(data_block, list)
         {
@@ -268,31 +279,53 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 
             if(my_thread_n == 0)
             {
+				union Data data;
+				data.seq_num = 0;
+				
                 while(!last_package_read)
                 {
-                    int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&father, &len);
+					//printf("Wii\n");
+                    int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
 
                     if(check > 0)
                     {
+						printf("Wii\n");
 						#pragma omp critical (insert_packages)
                         {
-                            insert(&list, package);
-                        }
+                            if(insert(&list, package) != -1)
+                            {
+								
+								strncpy( data.str, package+1, 3 );
+								if(data.seq_num == RN)
+								{
+									RN = data.seq_num + 1;
+									data.seq_num = RN;
+									
+									package[0] = 1;
+									strncpy( package + 1, data.str, 3 );
+									sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+								}
+								else
+								{
+									data.seq_num = RN;
+									package[0] = 1;
+									strncpy( package + 1, data.str, 3 );
+									sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+								}
 
-                        strncpy( data.str, package+3, 3 );
-                        RN = data.seq_num+1;
+							}
+                        }
                     }
 
-                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&father, len);
                 }
-
-                give_up_flag = false;
+                
+                continue_flag = true;
 
                 printf("Reciever: About to give up in 60s \n");
                 package[4] = '*';
                 while(!give_up_flag)
                 {
-                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&child, len);
+                    sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                     usleep(500000);
                 }//after 60s, i give up :c
                 printf("Salí del juail\n");
@@ -311,7 +344,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                         {
                             strncpy( data_block , tmp+4, PACK_THROUGHPUT ); //si la lisa no está vacia, entonces desempaqueta el de menor rn
                         }
-                        if( data_block[0] = '*')
+                        if( data_block[0] == '*')
                         {
                             last_package_read = true;
                         }
@@ -323,7 +356,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
             else if(my_thread_n == 2)
             {
                 FILE* cpy_file;
-                cpy_file = fopen("copia.jpg", "wr");
+                cpy_file = fopen(argv[5], "wr");
 
                 while( !last_package_read && !check_emptyness(data_block, PACK_THROUGHPUT) )
                 {
@@ -343,7 +376,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
             else if(my_thread_n == 3)
             {
 
-                while(!give_up_flag)
+                while(!continue_flag)
                 {
                     sleep(1);
                 }
@@ -353,8 +386,8 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 
             close(sockfd);
             destroy(&list);
-            free(data_block);
-            free(package);
+            //free(data_block);
+            //free(package);
         }
     }
 
@@ -396,7 +429,7 @@ int check_emptyness(char* str, int size)
 //Función flush bota de la lista los packages con secuencia menor al ack recibido
 void flush( list_t* list, int my_RN, int ack_RN )
 {
-    while ( my_RN < ack_RN )
+    while ( my_RN < ack_RN)
     {
         pop( list );
         my_RN++;

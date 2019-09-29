@@ -37,6 +37,8 @@ int insert(list_t* queue, char* package)//insert package to its respective place
 {
   //this is used to control the package header (first 4B)
   union Data data;
+  data.seq_num = 0;
+  //int repeated_flag = 0;
   strncpy(data.str, package+1, 3);// we only care about the last 3B becuase it refers to the sequence number of the package
   int pack_seq_num = data.seq_num;
   
@@ -102,6 +104,8 @@ int insert(list_t* queue, char* package)//insert package to its respective place
       }
       else
       {
+		if(is_repeated(queue,package))
+			return -2;
         return -1; //could not insert package
       }
     }
@@ -123,6 +127,7 @@ char* pop(list_t* queue)
   char* data = queue->recv_matrix[queue->front];
 
   union Data tmp;
+  tmp.seq_num = 0;
   strncpy(tmp.str, queue->recv_matrix[queue->front]+1, 3);
 
   //strncpy( data, queue->recv_matrix[queue->front], PACKAGE_SIZE );

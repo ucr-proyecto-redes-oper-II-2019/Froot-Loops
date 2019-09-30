@@ -108,7 +108,7 @@ int insert(list_t* queue, char* package)//insert package to its respective place
       {
         my_strncpy( queue->recv_matrix[package_index], package, PACKAGE_SIZE );//add it to the list
         printf("Estoy agregando el paquete caso 3 %d\n", pack_seq_num);
-        queue->ack_array[queue->rear] = true;//mark it as written
+        queue->ack_array[package_index] = true;//mark it as written
         queue->rear++;//advance the window
         return EXIT_SUCCESS;// return 0
       }

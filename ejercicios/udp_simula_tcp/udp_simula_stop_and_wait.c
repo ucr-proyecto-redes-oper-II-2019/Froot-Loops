@@ -3,7 +3,7 @@ Grupo: Froot Loops
 Integrantes:
 Daniel Barrantes
 Antonio Alvarez
-Steven Barahona 
+Steven Barahona
 */
 #include <stdio.h>
 #include <strings.h>
@@ -24,6 +24,7 @@ typedef struct timespec walltime_t;
 
 #define false 0
 #define true 1
+#define PACKAGE_LIMIT 10
 #define BUFF_SIZE 300
 #define PACK_SIZE 516 //pack_size total, incluyendo headers
 #define PACK_THROUGHPUT 512 //cantidad de datos de todo el paquete (throughput)
@@ -31,6 +32,7 @@ typedef struct timespec walltime_t;
 int my_tcp_send(char* data_block, FILE* file);
 int check_emptyness(char* str, int size);
 void flush( list_t* list, int my_RN, int ack_RN );
+int refresh_rn( list_t* list, int current_rn);
 
 
 /*
@@ -48,15 +50,15 @@ printf("Time elapsed %.9lfs \n",elapsed);
 
 int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = receptor_ip, argv[4] = receptor_port, argv[5] = file_path
 {
-	
+
 	if(argc < 7)
 	{
 		printf("No enough arguments given\n Usage: <my_IP> <my_port> <receptor_ip> <receptor_port> <file_path> <Rol>\n");
 		return EXIT_FAILURE;
 	}
-	
-	
-	
+
+
+
     struct sockaddr_in me, other;
     bzero(&me, sizeof(me));
     bzero(&other, sizeof(other));
@@ -85,7 +87,11 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
     if(cpid != 0 && atoi(argv[6]) == 0)//father process(sender)
     {
 		printf("Holi soy sender\n");
-		
+
+        unsigned int len = sizeof(other);
+        int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
+
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
         //char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
         list_t list;
@@ -97,14 +103,6 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         //int continue_flag = 0;
         int give_up_flag = 0;
         int wait_flag = true;
-        
-        unsigned int len = sizeof(other);
-
-        // create datagram socket
-        int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
-        // bind created socket to my addres
-        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
 
 		#pragma omp parallel num_threads(4) shared(data_block, list)
         {
@@ -119,32 +117,32 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 char tmp[PACK_THROUGHPUT];
                 while(!end_flag)
                 {
-				
+
 					while(check_emptyness(data_block,PACK_THROUGHPUT) )
 					{
 						printf("Sender: Había cambo en data block\n");
 						if(fread(tmp, PACK_THROUGHPUT, 1, file) > 0)
 						{
-							
+
 							#pragma omp critical (shared_buffer)
 							{
 								my_strncpy(data_block,tmp,PACK_THROUGHPUT);
 							}
-							
+
 							printf("Sender: Pude escribir en data block\n");
 						}
 						else
 						{
 							end_flag = true;
 						}
-							
+
 					}
 
                 }
 
                 fclose(file);
                 last_package_read = true;
-                
+
                 printf("Thread 0 terminó de leer el archivo\n");
 
             }
@@ -153,7 +151,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 				char * package = malloc( sizeof(char) * PACK_SIZE );
 				union Data data;
 				data.seq_num = 0;
-				
+
 				#pragma omp critical (data_block)
 				{
 					while(!last_package_read)
@@ -166,28 +164,28 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 								//empaquetamiento
 								package[0] = 0;//Indica que es un SN
 								strncpy(package+4, data_block, PACK_THROUGHPUT );
-	  
+
 								data.seq_num = SN;
-								
+
 								my_strncpy( package+1, data.str, 3 );
-								
+
 								printf("El sq es %d\n",data.seq_num);
-								//insert(&list, package);                               
-								   
-								int error_code = insert(&list, package);  
-												 
+								//insert(&list, package);
+
+								int error_code = insert(&list, package);
+
 								while(error_code == -1 || error_code == -2)
 								{
-									error_code = insert(&list, package);  
+									error_code = insert(&list, package);
 									usleep(500000);
 									printf("Intentando insertar\n");
 								}
-								
+
 								my_strncpy( data.str, list.recv_matrix[list.rear]+1, 3 );
 								printf("Después de insertar: %d\n",data.seq_num);
 								SN++;
 								bzero(data_block, PACK_THROUGHPUT);
-								
+
 							}
 
 							if(end_flag)
@@ -205,9 +203,9 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 						}
 					}
 				}
-				
-				
-               
+
+
+
 				free(package);
 
             }
@@ -226,15 +224,15 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                     {
                         for(int index = 0; index < list.size - 1; ++index) //envía todos los paquetes actualmente en la lista sin eliminarlos de la misma
                         {
-							
+
 							if(list.ack_array[index] == true)
 							{
 								my_strncpy(package, list.recv_matrix[index], PACK_SIZE);
-								
+
 								my_strncpy(data.str,list.recv_matrix[index] + 1 ,3);
-								
-								//printf("Enviando package #%d\n",data.seq_num);
-								
+
+							    printf("Enviando package #%d\n",data.seq_num);
+							    sleep(1);
 								sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
 							}
                         }
@@ -243,15 +241,15 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                         if(check > 0 && package[0] == 1)
                         {
                             my_strncpy(data.str, package+1, 3);
-                            
-                            
+
+
                             printf("Haciendo flush, antes en RN: %d hasta %d\n", RN,data.seq_num);
-                            
+
                             flush(&list, RN, data.seq_num); //flush rn's menores que el ack más reciente
-                            
+
                             RN = data.seq_num;
                             printf("Haciendo flush, después en RN: %d \n", RN);
-                           
+
                         }
                     }
                 }
@@ -264,7 +262,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                     sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                     usleep(500000);
                 }//after 60s, give up :c
-                
+
                 free(package);
 
             }
@@ -291,23 +289,21 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
     else if(atoi(argv[6]) == 1 && cpid == 0)//Child process start(reciever)
     {
 		printf("Soi reciever jejeps\n");
+        unsigned int len = sizeof(other);
+        int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
+
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
-       
+
         list_t list;
         list_init(&list);
         int RN = 0; //ack que estoy enviando
         int last_package_read = false;
         //int wait_flag = true;
-       
+
         int continue_flag = false;
         int give_up_flag = false;
 
-
-        unsigned int len = sizeof(other);
-        // create datagram socket
-        int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        // bind created socket to my address
-        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
 
 		#pragma omp parallel num_threads(4) shared(data_block, list)
         {
@@ -318,7 +314,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 				char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
 				union Data data;
 				data.seq_num = 0;
-				
+
                 while(!last_package_read)
                 {
 					//printf("Wii\n");
@@ -326,39 +322,58 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 
                     if(check > 0)
                     {
-						printf("Wii\n");
+						//printf("Wii\n");
 						#pragma omp critical (insert_packages)
                         {
 							my_strncpy(data.str,package+1,3);
 							printf("Intentando de meter %d\n",data.seq_num);
-                            if(insert(&list, package) != -1)
+
+                            int error_code = insert(&list, package);
+
+                             if(error_code == 0)//si se logró insertar ese paquete
                             {
-								
-								my_strncpy( data.str, package+1, 3 );
+                                printf("Error Code: 0\n");
+								//my_strncpy( data.str, package+1, 3 );
 								if(data.seq_num == RN)
 								{
+                                    printf("Me llego el RN %d y estaba esperando el %d\n", data.seq_num, RN);
 									//RN = data.seq_num + 1;
-									RN++;
-									data.seq_num = RN;
-									
-									package[0] = 1;
-									my_strncpy( package + 1, data.str, 3 );
-									sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
-								}
-								else
-								{
-									data.seq_num = RN;
-									package[0] = 1;
-									my_strncpy( package + 1, data.str, 3 );
-									sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
-								}
+									//RN++;
+                                    RN = refresh_rn( &list, RN); //busca cual es el siguiente ack a pedir(basado en los continuos que ya tiene)
+									//data.seq_num = RN;
 
+									//package[0] = 1;
+									//my_strncpy( package + 1, data.str, 3 );
+									//sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
+								}
+								/*else //hay un hueco, se busca el nuevo rn.
+								{
+                                    printf("Me llego el RN %d y estaba esperando el %d\n", data.seq_num, RN);
+									data.seq_num = RN;
+									//package[0] = 1;
+									//my_strncpy( package + 1, data.str, 3 );
+
+								}*/
 							}
+							/*else if(error_code == -2) //el paquete es repetido
+							{
+
+                                printf("Error code -2\n");
+								data.seq_num = RN;
+								//package[0] = 1;
+								//my_strncpy( package + 1, data.str, 3 );
+							}*/
+
+
                         }
                     }
+                  	package[0] = 1;
+                  	data.seq_num = RN;
+                  	my_strncpy( package + 1, data.str, 3 );
+					sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
 
                 }
-                
+
                 continue_flag = true;
 
                 printf("Reciever: About to give up in 60s \n");
@@ -375,42 +390,46 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
             }
             else if(my_thread_n == 1)
             {
-				char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
-                while(!last_package_read)
+
+                #pragma omp critical (check_buffer)
                 {
-                    if(!is_empty(&list) && (check_emptyness(data_block,  PACK_THROUGHPUT))) //verifica que el buffer también este vacío
-                    {         
-						#pragma omp critical (check_buffer)
-                        {
-							char* tmp = pop(&list);
-                            my_strncpy( data_block , tmp+4, PACK_THROUGHPUT ); //si la lisa no está vacia, entonces desempaqueta el de menor rn
-                        }
-                        if( data_block[0] == '*')
-                        {
-                            last_package_read = true;
-                        }
+					 while(!last_package_read)
+					{
+						if(!is_empty(&list) && (check_emptyness(data_block,  PACK_THROUGHPUT))) //verifica que el buffer también este vacío
+						{
 
-                    }
+								char* tmp = pop(&list);
+								my_strncpy( data_block , tmp+4, PACK_THROUGHPUT ); //si la lisa no está vacia, entonces desempaqueta el de menor rn
 
-                }
-                free(package);
+							if( data_block[0] == '*')
+							{
+								last_package_read = true;
+							}
+
+						}
+
+					}
+				}
+
             }
             else if(my_thread_n == 2)
             {
                 FILE* cpy_file;
                 cpy_file = fopen(argv[5], "wr");
 
-                while( !last_package_read && !check_emptyness(data_block, PACK_THROUGHPUT) )
-                {
-                    if(!check_emptyness(data_block, PACK_THROUGHPUT))
-                    {
-                        fwrite(data_block, PACK_THROUGHPUT,1 , cpy_file);
-                    }
-					#pragma omp critical (clean_buffer)
-                    {
-                        bzero(data_block, sizeof(char));
-                    }
-                }
+				#pragma omp critical (clean_buffer)
+				{
+					while( !last_package_read && !check_emptyness(data_block, PACK_THROUGHPUT) )
+					{
+						if(!check_emptyness(data_block, PACK_THROUGHPUT))
+						{
+							fwrite(data_block, PACK_THROUGHPUT,1 , cpy_file);
+						}
+
+						bzero(data_block, sizeof(char));
+
+					}
+				}
 
                 fclose(cpy_file);
 
@@ -477,4 +496,25 @@ void flush( list_t* list, int my_RN, int ack_RN )
         my_RN++;
     }
     //jajasalu2
+}
+
+int refresh_rn( list_t* list, int current_rn)
+{
+   // int recieved = current_rn;
+    int stop = false;
+    int max = PACKAGE_LIMIT;
+    int moved = 0;
+
+    while(!stop && (moved < max))
+    {
+      current_rn++;
+      if( list->ack_array[current_rn % PACKAGE_LIMIT] == false )
+      {
+			printf("Detuvo en RN %d, en la posición %d de la lista  \n", current_rn ,(current_rn % PACKAGE_LIMIT));
+        stop = true;
+      }
+      moved++;
+
+    }
+    return (current_rn);
 }

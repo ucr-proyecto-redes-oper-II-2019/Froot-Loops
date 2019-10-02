@@ -21,6 +21,7 @@ int is_repeated(list_t* list, char* package);
 
 void list_init(list_t* queue)// initialize the list
 {
+	printf("Iniciando lista\n");
     queue->front = -1;
     queue->rear = -1;
     queue->size = PACKAGE_LIMIT;
@@ -38,16 +39,18 @@ void list_init(list_t* queue)// initialize the list
 
 int insert(list_t* queue, char* package)//insert package to its respective place in the list
 {
+	
     //this is used to control the package header (first 4B)
     union Data data;
     data.seq_num = 0;
     my_strncpy(data.str, package+1, 3);// we only care about the last 3B becuase it refers to the sequence number of the package
     int pack_seq_num = data.seq_num;
 
-
+	printf("Estoy a punto de insertar un paquete\n");
     //check if list is full
     if ((queue->front == 0 && queue->rear == queue->size-1) || (queue->rear == (queue->front-1)%(queue->size-1)))
     {
+		printf("Seré\n");
         printf("\nList is Full\n");
         return INSERT_FAILURE;
     }
@@ -56,6 +59,7 @@ int insert(list_t* queue, char* package)//insert package to its respective place
         //if its the first element to be inserted
         if (queue->front == -1)
         {
+			printf("Entré al caso 1 antes de todo\n");
             queue->front = 0;
             queue->rear = 0;
             my_strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
@@ -68,6 +72,7 @@ int insert(list_t* queue, char* package)//insert package to its respective place
         //if the list is full on the end but there's still space at the begginig of the list
         else if (queue->rear == queue->size-1 && queue->front != 0)
         {
+			printf("Entré al caso 2 antes de todo\n");
             //get the seq_num
             my_strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
 
@@ -90,6 +95,7 @@ int insert(list_t* queue, char* package)//insert package to its respective place
         //otherwise just insert the package on the corresponding index (position)
         else
         {
+			printf("Entré al caso 3 antes de todo\n");
             //calculate index in which the package shall be placed
             int package_index = pack_seq_num % (abs(queue->front - queue->rear) + 2);
 

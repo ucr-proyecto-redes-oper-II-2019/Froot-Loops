@@ -82,9 +82,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
     {
         printf("Holi soy sender\n");
 
-        unsigned int len = sizeof(other);
-        int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
+        
 
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
         //char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
@@ -199,6 +197,9 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
             }
             else if(my_thread_n == 2)
             {
+				unsigned int len = sizeof(other);
+				int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+				bind(sockfd, (struct sockaddr *)&me, sizeof(me));
                 //intentar de enviar los paquetes disponibles
                 char * package = malloc( sizeof(char) * PACK_SIZE );
                 union Data data;
@@ -218,7 +219,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                                 my_strncpy(data.str,list.recv_matrix[index] + 1 ,3);
 
                                 printf("Sender[2] enviando package #%d por red\n",data.seq_num);
-                                sleep(300000);
+                                usleep(300000);
                                 sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                             }
                         }
@@ -260,6 +261,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                     
                 }//after 60s, give up :c
                 free(package);
+                close(sockfd);
             }
             else if( my_thread_n == 3)
             {
@@ -274,7 +276,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         }
         //end of parallel region
 
-        close(sockfd);
+        
         destroy(&list);
         free(data_block);
         //free(str);
@@ -283,9 +285,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
     else if(atoi(argv[6]) == 1 && cpid == 0)//Child process start(reciever)
     {
         printf("Soi reciever jejeps\n");
-        unsigned int len = sizeof(other);
-        int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        bind(sockfd, (struct sockaddr *)&me, sizeof(me));
+       
 
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
 
@@ -305,6 +305,10 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 
             if(my_thread_n == 0)
             {
+				
+				unsigned int len = sizeof(other);
+				int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+				bind(sockfd, (struct sockaddr *)&me, sizeof(me));
                 char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
                 union Data data;
                 data.seq_num = 0;
@@ -313,6 +317,8 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 {
                     int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
 
+					//printf("Esto tiene check desde receptor: %d\n",check);
+					
                     if(check > 0) //si capturo un paquete
                     {
                         #pragma omp critical (insert_packages)
@@ -321,6 +327,8 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                             printf("Reciever[0] intentando de meter %d a la ventana\n",data.seq_num);
 
                             int error_code = insert(&list, package);
+                            /*
+                            printf("Este es el error code: %d\n",error_code);
 
                             if(error_code == 0)//si se logró insertar ese paquete
                             {
@@ -331,7 +339,8 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                                     RN = refresh_rn( &list, RN); //busca cual es el siguiente ack a pedir(basado en los continuos que ya tiene)
 
                                 }
-                            }
+                            }*/
+                            printf("Logré continuar\n");
                         }
                     }
                     package[0] = 1;
@@ -363,6 +372,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 
                 printf("Salí del juail\n");
                 free(package);
+                 close(sockfd);
             }
             else if(my_thread_n == 1)
             {
@@ -425,7 +435,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 give_up_flag = true;
             }
 
-            close(sockfd);
+           
             destroy(&list);
             //free(data_block);
             //free(package);

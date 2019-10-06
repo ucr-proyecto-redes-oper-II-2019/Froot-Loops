@@ -9,13 +9,8 @@ Steven Barahona
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
 
-#define PACKAGE_LIMIT 10
-#define PACKAGE_SIZE 516
-#define true 1
-#define false 0
-#define INSERT_FAILURE -1
-#define INSERT_FAIL_REPEATED -2
 
 int is_repeated(list_t* list, char* package);
 
@@ -50,7 +45,6 @@ int insert(list_t* queue, char* package)//insert package to its respective place
     //check if list is full
     if ((queue->front == 0 && queue->rear == queue->size-1) || (queue->rear == (queue->front-1)%(queue->size-1)))
     {
-		printf("Seré\n");
         printf("\nList is Full\n");
         return INSERT_FAILURE;
     }
@@ -77,7 +71,7 @@ int insert(list_t* queue, char* package)//insert package to its respective place
             my_strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
 
             //if the package's seq_num does not overlap the list's size and if the package has not yet been received, handle it
-            if ((pack_seq_num < (data.seq_num + PACKAGE_LIMIT-1) && !is_repeated(queue,package)))//no verifica que al dar la vuelta el seq:num es el que sigue
+            if ((pack_seq_num < (data.seq_num + PACKAGE_LIMIT) && !is_repeated(queue,package)))//no verifica que al dar la vuelta el seq:num es el que sigue
             {
                 queue->rear = 0;
                 my_strncpy( queue->recv_matrix[queue->rear], package, PACKAGE_SIZE );//add it to the list
@@ -97,12 +91,12 @@ int insert(list_t* queue, char* package)//insert package to its respective place
         {
 			printf("Entré al caso 3 antes de todo\n");
             //calculate index in which the package shall be placed
-            int package_index = pack_seq_num % (abs(queue->front - queue->rear) + 2);
+            int package_index = data.seq_num % (abs(queue->front - queue->rear) + 2);
 
             my_strncpy(data.str,queue->recv_matrix[queue->front]+1,3);
 
             //if the package has not yet been received, add it to the list and if the package's seq_num does not overlap the list's size, then insert it
-            if (!is_repeated(queue,package) && pack_seq_num < (data.seq_num + PACKAGE_LIMIT - 1))
+            if (!is_repeated(queue,package) && pack_seq_num < (data.seq_num + PACKAGE_LIMIT))
             {
                 my_strncpy( queue->recv_matrix[package_index], package, PACKAGE_SIZE );//add it to the list
                 printf("Estoy agregando el paquete caso 3 %d\n", pack_seq_num);

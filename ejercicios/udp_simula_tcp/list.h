@@ -8,6 +8,14 @@ Antonio Alvarez
 Steven Barahona 
 */
 //la cola tiene que ser una estructura de tamano 11 que contenga paquetes de 516
+
+#define PACKAGE_LIMIT 10
+#define PACKAGE_SIZE 516
+#define true 1
+#define false 0
+#define INSERT_FAILURE -1
+#define INSERT_FAIL_REPEATED -2
+
 typedef struct
 {
   //rear is the end of the window (f)

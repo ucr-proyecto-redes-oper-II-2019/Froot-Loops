@@ -1,6 +1,6 @@
 /*
-Grupo: Froot Loops
-Integrantes:
+ * Grupo Froot Loops
+ * Integrantes:
 Daniel Barrantes
 Antonio Alvarez
 Steven Barahona
@@ -114,13 +114,13 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
       data.seq_num = 0;
       SN = 0;
 
-      while(!all_data_read) //hasta que el hilo 0 ya no pueda leer más (se acabó el archivo)
+      while(!all_data_read && !last_package_read) //hasta que el hilo 0 ya no pueda leer más (se acabó el archivo)
       {
-        //esta sección critica bloquea la escritura en el data_block que se realiza en el hilo 0
-        #pragma omp critical (data_block)
+
+        //verificamos que el bloque no esté vació (por ende podemos leer de él y limpiarlo)
+        if( !( check_emptyness(data_block, PACK_THROUGHPUT) ) )
         {
-          //verificamos que el bloque no esté vació (por ende podemos leer de él y limpiarlo)
-          if( !( check_emptyness(data_block, PACK_THROUGHPUT) ) )
+					#pragma omp critical (data_block)
           {
             //-----------------empaquetamiento------------------//
             package[0] = 0; //se especifica que es un envío
@@ -128,35 +128,40 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
             data.seq_num = SN;//htonl(SN);//se guarda el SN en BIG ENDIAN en el data.seq_num
             my_strncpy( package+1, data.str, 3 );//se guardan los primeros 3B del seq_num en el paquete
             //-----------------empaquetamiento------------------//
+          }
 
+          #pragma omp critical (list_management)
+          {
             //intenta de meter el paquete hasta que obtenga error code = success
             printf("Sender[1]: El sq intentando de insertar es %d\n",data.seq_num);
             int error_code = insert( &list, package);
-            while(error_code == INSERT_FAILURE || error_code == INSERT_FAIL_REPEATED)
+            if( error_code  == EXIT_SUCCESS )
             {
-              error_code = insert(&list, package);
-              usleep(800000);
-              printf("Sender[1]: Intentando de insertar %d\n",data.seq_num);
+              SN++;
+              bzero(data_block, PACK_THROUGHPUT);
             }
-            SN++;
-            bzero(data_block, PACK_THROUGHPUT);
+
           }
 
-          //luego de escribir en el data_block, se pregunta si el hilo 0 ya leyó todo el archivo
-          if (all_data_read) //si ya se leyó todo el archivo, se añade el paquete final a la lista
+        }
+
+        //luego de escribir en el data_block, se pregunta si el hilo 0 ya leyó todo el archivo
+        if (all_data_read) //si ya se leyó todo el archivo, se añade el paquete final a la lista
+        {
+          last_package_read = true;
+          /*#pragma omp critical (list_management)
           {
             package[0] = 0;
             package[4] = '*';
+            data.seq_num = SN;
+            my_strncpy( package+1, data.str, 3);
             int error_code = insert(&list, package);
-            while(error_code == INSERT_FAILURE) //asegurarse que el paquete sea metido a la estructura de datos
+            if(error_code == EXIT_SUCCESS) //asegurarse que el paquete sea metido a la estructura de datos
             {
-                usleep(3000000);
                 error_code = insert(&list, package);
+                printf("Sender[1]: Metiendo el ultimo pack '*'\n");
             }
-            last_package_read = true; 
-
-          }
-
+          }*/
         }
         usleep(200000);//usleep para darle chance al hilo 0 de que escriba en el data_block
 
@@ -165,10 +170,10 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
 
     }
     //--------------------------------------fin del hilo 1 ---------------------------------------//
-    
+
   	//------------------------------------inicio del hilo 2---------------------------------------//
     /*
-     el hilo 2 se encarga de enviar los paquetes por la red y recibe los ack's 
+     el hilo 2 se encarga de enviar los paquetes por la red y recibe los ack's
      */
     else if (my_thread_n == 2)
     {
@@ -188,67 +193,73 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
       dest.sin_family = AF_INET;
       dest.sin_addr.s_addr = inet_addr(argv[2]); //IP destino se especifica en el 2do parametro de linea de comando
 			dest.sin_port = htons(atoi(argv[3])); //el puerto a donde envío se especifica en el 3er parámetro de la línea de comando
-      
+
       //-----------------creación del socket-----------------//
       int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
       //Se enlaza el socket sockfd a la estructura de datos source
       int bind_return = bind(sockfd, (struct sockaddr *)&source, sizeof(source));
-      
+
       unsigned int len = sizeof(dest);
-      
+
+      usleep(400000);
+
       while( !(last_package_read) && !(all_data_read) && !(is_empty(&list)) )
       {
-        
-        #pragma omp critical (data_block)
+
+        #pragma omp critical (list_management)
         {
           //se intentan de enviar todos los paquetes actualmente en la lista
-          for(int index = 0; index < list.size - 1; ++index) //intenta de enviar todos los paquetes actualmente en la lista sin eliminarlos de la misma
+          for(int index = 0; index < list.size; ++index) //intenta de enviar todos los paquetes actualmente en la lista sin eliminarlos de la misma
           {
             if(list.ack_array[index] == true) //si existe logicamente en la lista se envia
             {
               my_strncpy(package, list.recv_matrix[index], PACK_SIZE);
-              
+
               my_strncpy(data.str,list.recv_matrix[index] + 1 ,3);
               printf("Sender[2] enviando package #%d por red\n",data.seq_num);
               usleep(300000);
-              
+
               sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&dest, len);
             }
           }
-          
-          //se recupera un paquete y se extrae el ACK          
-          int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&dest, &len);
-          if( check > 0 && package[0])
+        }
+
+          //se recupera un paquete y se extrae el ACK
+        int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&dest, &len);
+        if( check > 0 && package[0] == 1 )
+        {
+
+          my_strncpy(data.str, package+1, 3); //----------------------------------------be careful
+
+          #pragma omp critical (list_management)
           {
-            my_strncpy(data.str, package+1, 3);
-            
             printf("Sender[2] recibi ack #%d de receptor\n",data.seq_num);
-            flush(&list, RN, data.seq_num); 
+            flush(&list, RN, data.seq_num);
             //flush rn's menores que el ack más reciente, para enviar desde el ack recibido en adelante
             RN = data.seq_num;
             printf("Sender[2] despues de flush, RN: %d \n", RN);
-            
           }
-          
         }
-        
+
+        usleep(200000);
+
       }
-      
+
       //-----------------------------------periodo de rendirse---------------------------------------//
-      wait_flag = false;
-      printf("Sender: About to give up in 60s \n");
-      
       //empaquetamos el último paquete
-      package[4] = '*';     
-      data.seq_num = RN;      
+      wait_flag = false;
+      package[0] = 0;
+      package[4] = '*';
+      data.seq_num = RN;
       my_strncpy( package+1, data.str, 3 );
-      
+      printf("Sender: About to give up in 60s \n");
+
       while(!give_up_flag)
       {
         sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&dest, len);
         usleep(500000);
-                   
+
         int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&dest, &len);
         if(check > 0)
         {
@@ -257,32 +268,34 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
             give_up_flag = true;
           }
         }
-                    
+
       }//after 60s, give up :c
+
       free(package);
-      close(sockfd); 
+      close(sockfd);
+      //-----------------------------------periodo de rendirse---------------------------------------//
     }
     //-------------------------------------fin del hilo 2-----------------------------------------//
+
     //-------------------------------------inicio del hilo 3-----------------------------------------//
     else if(my_thread_n == 3)
     {
       wait_flag = true;
       while(wait_flag)
       {
-        sleep(1);
+        sleep(2);
       }
       sleep(60);
       give_up_flag = true;
     }
     //-------------------------------------inicio del hilo 3-----------------------------------------//
   }
-  //----------------------------------fin de la sección paralela ---------------------------------//
+  //----------------------------------fin de la sección paralela ------------------------------------//
+  free(data_block);
+  destroy(&list);
   return 0;
+
 }
-
-
-
-
 
 //----------------funciones(subrutinas) utilizadas en el programa del emisor----------------------//
 /*

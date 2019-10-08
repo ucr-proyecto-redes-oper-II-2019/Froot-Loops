@@ -3,7 +3,7 @@ Grupo: Froot Loops
 Integrantes:
 Daniel Barrantes
 Antonio Alvarez
-Steven Barahona 
+Steven Barahona
 */
 #include "list.h"
 #include <stdlib.h>
@@ -34,7 +34,7 @@ void list_init(list_t* queue)// initialize the list
 
 int insert(list_t* queue, char* package)//insert package to its respective place in the list
 {
-	
+
     //this is used to control the package header (first 4B)
     union Data data;
     data.seq_num = 0;
@@ -140,20 +140,20 @@ char* pop(list_t* queue)
         queue->ack_array[queue->front] = false;
         queue->front = -1;
         queue->rear = -1;
-        printf("List: Pooping element case 1 no.%d \n", tmp.seq_num);
+        printf("List: Popping element case 1 no.%d \n", tmp.seq_num);
     }
     else if (queue->front == (queue->size)-1)//this is what it makes the list circular, if front is at the end of list
         //it resets and goes back to the beggining of the list
     {
         queue->ack_array[queue->front] = false;
         queue->front = 0;
-        printf("List: Pooping element case 2 no.%d \n", tmp.seq_num);
+        printf("List: Popping element case 2 no.%d \n", tmp.seq_num);
     }
     else
     {
         queue->ack_array[queue->front] = false;
         queue->front++; //window just shrinks
-        printf("List: Pooping element case 3 no.%d \n", tmp.seq_num);
+        printf("List: Popping element case 3 no.%d \n", tmp.seq_num);
     }
     return data;
 }
@@ -250,7 +250,7 @@ int is_repeated(list_t* list, char* package)
         }
     }
     return false;
-}        
+}
 
 char* my_strncpy(char *dest, const char *src, int n)
 {
@@ -259,5 +259,3 @@ char* my_strncpy(char *dest, const char *src, int n)
 
     return dest;
 }
-
-

@@ -74,15 +74,15 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 
     if(cpid == -1)
     {
-        perror("Fork failed to create child lul \n");
+        perror("Fork failed to create child\n");
         exit(EXIT_FAILURE);
     }
 
     if(cpid != 0 && atoi(argv[6]) == 0)//father process(sender)
     {
-        printf("Holi soy sender\n");
+        printf("soy sender\n");
 
-        
+
 
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
         //char * package = malloc( sizeof(char) * PACK_SIZE ); //buffer compartido del paquete
@@ -227,10 +227,10 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                         int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len); // intenta recivir un paquete
                         if(check > 0 && package[0] == 1) //si el "kind" del package es un ack
                         {
-							
+
                             my_strncpy(data.str, package+1, 3);
 							printf("Sender[2] recibi ack #%d de receptor\n",data.seq_num);
-							
+
                             printf("Sender[2] haciendo flush, antes en RN: %d hasta %d\n", RN,data.seq_num);
                             flush(&list, RN, data.seq_num); //flush rn's menores que el ack más reciente
                             RN = data.seq_num;
@@ -240,7 +240,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                         }
                     }
                 }
-                
+
                 //inicia el periodo de "rendirse"
                 wait_flag = false;
                 printf("Sender: About to give up in 60s \n");
@@ -249,7 +249,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 {
                     sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                     usleep(500000);
-                    
+
                     int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
                     if(check > 0)
                     {
@@ -258,7 +258,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                             give_up_flag = true;
                         }
                     }
-                    
+
                 }//after 60s, give up :c
                 free(package);
                 close(sockfd);
@@ -276,7 +276,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
         }
         //end of parallel region
 
-        
+
         destroy(&list);
         free(data_block);
         //free(str);
@@ -284,8 +284,8 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
     }
     else if(atoi(argv[6]) == 1 && cpid == 0)//Child process start(reciever)
     {
-        printf("Soi reciever jejeps\n");
-       
+        printf("Soy reciever\n");
+
 
         char * data_block = calloc( 1, sizeof(char)* PACK_THROUGHPUT ); //buffer compartido de datos
 
@@ -305,7 +305,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
 
             if(my_thread_n == 0)
             {
-				
+
 				unsigned int len = sizeof(other);
 				int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 				bind(sockfd, (struct sockaddr *)&me, sizeof(me));
@@ -318,7 +318,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                     int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
 
 					//printf("Esto tiene check desde receptor: %d\n",check);
-					
+
                     if(check > 0) //si capturo un paquete
                     {
                         #pragma omp critical (insert_packages)
@@ -353,13 +353,13 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 continue_flag = true;
                 printf("Reciever: About to give up in 60s \n");
                 package[4] = '*';
-                
+
                 //giveup time (intentar de mandar el ack cierto tiempo)
                 while(!give_up_flag)
                 {
                     sendto(sockfd, package, PACK_SIZE, 0, (struct sockaddr*)&other, len);
                     usleep(500000);
-                    
+
                     int check = recvfrom(sockfd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &len);
                     if(check > 0)
                     {
@@ -369,8 +369,8 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                         }
                     }
                 }//after 60s, i give up :c
-                
-                printf("Salí del juail\n");
+
+                printf("Salí del while\n");
                 free(package);
                  close(sockfd);
             }
@@ -435,7 +435,7 @@ int main(int argc, char* argv[])//agrg[1] = my_IP, argv[2] = my_port, argv[3] = 
                 give_up_flag = true;
             }
 
-           
+
             destroy(&list);
             //free(data_block);
             //free(package);
@@ -484,6 +484,6 @@ int refresh_rn( list_t* list, int current_rn)
         }
         moved++;
     }
-    
+
     return (current_rn);
 }

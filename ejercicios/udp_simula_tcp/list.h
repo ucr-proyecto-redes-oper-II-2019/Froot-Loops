@@ -9,6 +9,11 @@ Steven Barahona
 */
 //la cola tiene que ser una estructura de tamano 11 que contenga paquetes de 516
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <arpa/inet.h>
+
 #define PACKAGE_LIMIT 10
 #define PACKAGE_SIZE 516
 #define true 1

@@ -20,18 +20,19 @@ Programa encargado de enviar un jpg por paquetes de 516B
 #include <string.h>
 #include <fcntl.h>
 #include <omp.h>
-#include "list.h"
-#include "auxiliar_funtions.h"
+#include "list_emisor.h"
+#include "auxiliar_functions.h"
 #include "file_reader.h"
 #include "packer.h"
+#include "pitcher.h"
 
 int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, argv[3] = <destiny_port> argv[4] = file_path
 {
 	//programación preventiva, se asegura que se hayan ingresado los parámetros necesarios
 	if(argc < 4)//validacion de parametros
 	{
-	printf("No enough arguments given\n Usage: <my_port>, argv[2] = <destiny_ip>, argv[3] = <destiny_port> argv[4] = file_path\n");
-	return EXIT_FAILURE;
+		printf("No enough arguments given\n Usage: <my_port>, argv[2] = <destiny_ip>, argv[3] = <destiny_port> argv[4] = file_path\n");
+		return EXIT_FAILURE;
 	}
 
 	list_t list;// la lista que servirá como ventana del emisor
@@ -44,6 +45,7 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
 	//int wait_flag = false;
 	//int give_up_flag = false;
 	int block_is_free = true;
+	int list_lock = false;
 
 	//-----------------------------inicio de la sección paralela----------------------------------//
 
@@ -58,8 +60,7 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
 		if (my_thread_n == 0)
 		{
 			
-			file_reader(argv[4], data_block, &all_data_read, 
-				&block_is_free);
+			file_reader(argv[4], data_block, &all_data_read, &block_is_free);
 				
 			//printf("Soy hilo 0 termié mi tarea\n");
 
@@ -67,9 +68,15 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
 		//------------------------------------fin del hilo 0 -----------------------------------------//
 		if (my_thread_n == 1)
 		{
-			packer(data_block,&all_data_read,&block_is_free,&list);
+			packer(data_block, &all_data_read, &block_is_free, &list, &list_lock);
 			
 			//printf("Soy hilo 1 termié mi tarea\n");
+		}
+		
+		if (my_thread_n == 2)
+		{
+		  pitcher(argv[1], argv[2], argv[3], &list, &list_lock, &all_data_read);
+		  //printf("Soy hilo 2 terminé mi tarea\n");
 		}
 
 
@@ -83,10 +90,3 @@ int main(int argc, char* argv[]) //argv[1] = <my_port>, argv[2] = <destiny_ip>, 
 }
 
 //----------------funciones(subrutinas) utilizadas en el programa del emisor----------------------//
-
-
-
-
-
-
-

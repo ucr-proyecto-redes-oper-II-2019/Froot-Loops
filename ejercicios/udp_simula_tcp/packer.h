@@ -6,6 +6,6 @@
 #define PACK_THROUGHPUT 512 //cantidad de datos de todo el paquete (throughput)
 #define PACK_SIZE 516 //pack_size total, incluyendo headers
 
-void packer(char* data_block, int* all_data_read, int* block_is_free, list_t* list);
+void packer(char* data_block, int* all_data_read, int* block_is_free, list_t* list, int* list_lock);
 
 #endif

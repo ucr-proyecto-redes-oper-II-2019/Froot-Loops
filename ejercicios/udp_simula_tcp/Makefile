@@ -1,5 +1,5 @@
-all: sender.c list.c auxiliar_funtions.c file_reader.c packer.c
-	gcc -Wall -Wextra sender.c list.c auxiliar_funtions.c file_reader.c packer.c -o out -fopenmp
+all: sender.c list.c auxiliar_functions.c file_reader.c packer.c pitcher.c
+	gcc -Wall -Wextra sender.c list.c auxiliar_functions.c file_reader.c packer.c pitcher.c -o out -fopenmp
 
 .PHONY: clean
 clean:

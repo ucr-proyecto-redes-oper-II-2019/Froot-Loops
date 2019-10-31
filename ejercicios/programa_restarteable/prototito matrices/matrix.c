@@ -57,18 +57,12 @@ void stop_simulation()
     save_matrix_register( registro_matrices->B );
     save_matrix_register( registro_matrices->I );
     save_matrix_register( registro_matrices->Temp );
+    
     fwrite( &registro_matrices->jump_location,  sizeof(int), 1, registro_matrices->file );
     fwrite( &registro_matrices->i, sizeof(int), 1, registro_matrices->file );
     fwrite( &registro_matrices->j, sizeof(int), 1, registro_matrices->file );
     fwrite( &registro_matrices->iters, sizeof(int), 1, registro_matrices->file );
     fwrite( &registro_matrices->totalprod, sizeof(int), 1, registro_matrices->file );
-    
-	printf("SS:\n");
-	printf("JL: %d\n",  registro_matrices->jump_location );
-	printf("I: %d\n", registro_matrices->i );
-	printf("J: %d\n", registro_matrices->j );
-	printf("Iters: %d\n",  registro_matrices->iters );
-	printf("Prod: %d\n",  registro_matrices->totalprod );     
        
     destroy_matrix(registro_matrices->A->matrix);
     destroy_matrix(registro_matrices->B->matrix);
@@ -84,23 +78,17 @@ void get_back_values()
     registro_matrices->file = fopen( "values.dat","wx" );
     if( registro_matrices->file == NULL )
     {
-
+		registro_matrices->file = fopen("values.dat","r+");
         recover_matrix_register( registro_matrices->A );
         recover_matrix_register( registro_matrices->B );
         recover_matrix_register( registro_matrices->I );
         recover_matrix_register( registro_matrices->Temp );
+        
         fread( &registro_matrices->jump_location, sizeof(int), 1, registro_matrices->file );
         fread( &registro_matrices->i, sizeof(int), 1, registro_matrices->file );
         fread( &registro_matrices->j, sizeof(int), 1, registro_matrices->file );
         fread( &registro_matrices->iters, sizeof(int), 1, registro_matrices->file );
         fread( &registro_matrices->totalprod, sizeof(int), 1, registro_matrices->file );
-        
-        printf("GBV:\n");
-        printf("JL: %d\n",  registro_matrices->jump_location );
-        printf("I: %d\n", registro_matrices->i );
-        printf("J: %d\n", registro_matrices->j );
-        printf("Iters: %d\n",  registro_matrices->iters );
-        printf("Prod: %d\n",  registro_matrices->totalprod );     
 
         rewind( registro_matrices->file );
     }
@@ -117,8 +105,6 @@ void get_back_values()
 //NOTA: Es importante el orden de lectura (el mismo de guardado y cargado)
 void save_matrix_register( matrix_info_t* matrix )	
 {  
-    //fwrite( &matrix->i,sizeof(int),1,registro_matrices->file );
-    //fwrite( &matrix->j,sizeof(int),1,registro_matrices->file );
     //Escribe en el archivo de datos la matriz "n-ésima", por donde iba en la ejecución
     for(int row_index = 0; row_index < M_SIZE; ++row_index)
     {
@@ -134,9 +120,6 @@ void save_matrix_register( matrix_info_t* matrix )
 void recover_matrix_register( matrix_info_t* matrix ) 
 {
     //Cuando el archivo ya existe
-    registro_matrices->file = fopen( "values.dat","r+" );
-    //fread( &matrix->i,sizeof(int),1,registro_matrices->file );
-    //fread( &matrix->j,sizeof(int),1,registro_matrices->file );
 
     for(int row_index = 0; row_index < M_SIZE; ++row_index)
     {
@@ -147,6 +130,8 @@ void recover_matrix_register( matrix_info_t* matrix )
     }
 }
 
+
+//Reserva memoria para las distintas matrices
 double** make_matrix()
 {
     double** matrix = calloc(M_SIZE,sizeof(double*));
@@ -158,6 +143,7 @@ double** make_matrix()
     return matrix;
 }
 
+//Libera memoria de las matrices alocadas previamente
 void destroy_matrix(double** matrix)
 {
     for(int i = 0; i < M_SIZE; ++i)
@@ -302,9 +288,7 @@ int main(void) {
     printf("\nMatriz B leida:\n");
     imprima(registro_matrices->B->matrix, dim);
 
-
     ident(registro_matrices->I->matrix, dim);
-    printf("Paso del ident\n");
 
     //VAR COMPARTIDA DE LOCACIÓN: CURRENT_LOCATION (KEY)
 
@@ -314,24 +298,19 @@ int main(void) {
             perror("Error opening trace.txt: ");
             return(-1);
         }
-        
-        printf("Abrio trace\n");
         n = rand() % 6 + 1;
         
         if( registro_matrices->jump_location != 0 )
         {
-			printf("Entro al switch\n");
             switch( registro_matrices->jump_location )
             {
                 case 1:
-                    printf("caso1\n");
                     registro_matrices->jump_location = 0;
                     goto jump1;
                     break;
                 ;
                 
                 case 2:
-                    printf("Caso2\n");
                     registro_matrices->jump_location = 0;
                     goto jump2;
                     break;

@@ -3,6 +3,8 @@
 
 #define FILE_BUFFER_SIZE 4096
 
+int min( int x, int y );
+
 int main(int argc, char* argv[])//argv[1] debe ser el nombre del archivo que se quiere separar, y los demás parámetros serán los nombres deseados de los archivos resultado
 {
 	char* source_file_name = argv[1];
@@ -37,20 +39,25 @@ int main(int argc, char* argv[])//argv[1] debe ser el nombre del archivo que se 
 			printf("Error leyendo el tamaño del archivo a separar\n");
 			return EXIT_FAILURE;
 		}
+		printf("El tamaño es de %d\n", int_buffer);
 		/*-------------------------------------------------------------------------------*/
 		
 		int bytes_read = 0;
 		int byte_count = 0;
 		
-		while (byte_count != int_buffer)
+		while (int_buffer > 0)
 		{
-			bytes_read = fread(buffer, sizeof(char), FILE_BUFFER_SIZE, source_file);
+			bytes_read = fread(buffer, sizeof(char), min(int_buffer,FILE_BUFFER_SIZE), source_file);
 			if (!bytes_read)
 			{
 				printf("Error leyendo los datos del archivo a separar\n");
 				return EXIT_FAILURE;
 			}
-			byte_count = byte_count + int_buffer;
+			
+			int_buffer = int_buffer - bytes_read;
+			
+			byte_count = byte_count + bytes_read;
+			printf("van leídos %d bytes\n", byte_count);
 			
 			int bytes_written = fwrite(buffer, sizeof(char), bytes_read, write_file);
 			if (!bytes_written)
@@ -59,25 +66,20 @@ int main(int argc, char* argv[])//argv[1] debe ser el nombre del archivo que se 
 				return EXIT_FAILURE;
 			}
 		}
-		/*
-		//se procede a leer la cantidad de bytes obtenida previamente
-		int bytes_read = fread(buffer, sizeof(char), int_buffer, source_file);
-		if (!bytes_read)
-		{
-			printf("Error leyendo los datos del archivo a separar\n");
-			return EXIT_FAILURE;
-		}
-		
-		//ahora se escriben int_buffer bytes de datos en el archivo resultado correspondiente
-		int bytes_written = fwrite(buffer, sizeof(char), bytes_read, write_file);
-		if (!bytes_written)
-		{
-			printf("Error escribiendo los datos en el archivo separado\n");
-			return EXIT_FAILURE;
-		}
-		* */
 		/*--------------------------------------------------------------------------------*/
 		fclose(write_file);
 	}
 	fclose(source_file);
+}
+
+int min( int x, int y )
+{
+    if( x < y )
+    {
+        return x;
+    }
+    else
+    {
+        return y;
+    }
 }

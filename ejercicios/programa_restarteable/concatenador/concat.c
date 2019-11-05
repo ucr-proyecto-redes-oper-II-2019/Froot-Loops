@@ -3,9 +3,9 @@
 #include <sys/stat.h>
 #include <string.h>
 
-#define FINAL_FILE_NAME "archivos_concatenados.txt"
+#define FINAL_FILE_NAME "archivos_concatenados"
 #define FILE_BUFFER_SIZE 4096
-#define FILE_NAME_SIZE 32
+#define FILE_NAME_SIZE 64
 
 int main(int argc, char* argv[])//argv[1] = # de archivos a concatenar, los otros parámetros son dichos archivos
 {

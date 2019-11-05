@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #define FILE_BUFFER_SIZE 4096
-#define FILE_NAME_SIZE 32
+#define FILE_NAME_SIZE 64
 
 int min( int x, int y );
 

@@ -1,11 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <string.h>
 
 #define FINAL_FILE_NAME "archivos_concatenados.txt"
 #define FILE_BUFFER_SIZE 4096
+#define FILE_NAME_SIZE 32
 
-int main(int argc, char* argv[])//por parámetro se ingresan los nombres de los archivos que se quieren concatenar
+int main(int argc, char* argv[])//argv[1] = # de archivos a concatenar, los otros parámetros son dichos archivos
 {
 	FILE* final_file = fopen(FINAL_FILE_NAME, "wb");
 	if (final_file == NULL)
@@ -22,13 +24,24 @@ int main(int argc, char* argv[])//por parámetro se ingresan los nombres de los 
 	
 	//estructura usada para obtener el tamaño de cada archivo
 	struct stat status;
+  
+	int number_of_files = atoi(argv[1]);
+  
+	//se escribe en el archivo concatenado el número de archivos que se van a concatenar
+	fwrite(&number_of_files, sizeof(int), 1, final_file);
 	
 	int file_size = 0;
 	
-	for (int i = 1; i < file_count; i++)
+	for (int i = 2; i < file_count; i++)
 	{
 		//se obtiene el nombre del i-ésimo archivo
-		char* file_name = argv[i];
+    char file_name[FILE_NAME_SIZE];
+    bzero(file_name,FILE_NAME_SIZE);
+    strcpy(file_name,argv[i]);
+    
+		//char* file_name = argv[i];
+    
+		//int len = strlen(argv[i]);
 		
 		//se obtiene el estado del archivo para obtener el tamaño
 		stat(file_name, &status);
@@ -41,10 +54,13 @@ int main(int argc, char* argv[])//por parámetro se ingresan los nombres de los 
 			return EXIT_FAILURE;
 		}
 		
+		//se escribe el nombre del archivo en el archivo concatenado
+		fwrite(&file_name, sizeof(char), FILE_NAME_SIZE, final_file);
+    
 		int bytes_read = 0;
 		
 		//se escribe el tamaño de cada archivo antes de escribir los datos
-		int size_written = fwrite(&file_size, sizeof(int), 1, final_file);
+		fwrite(&file_size, sizeof(int), 1, final_file);
 		
 		while ((bytes_read = fread(buffer, sizeof(char), FILE_BUFFER_SIZE, read_file)))//ciclo termina cuando se lean 0B
 		{

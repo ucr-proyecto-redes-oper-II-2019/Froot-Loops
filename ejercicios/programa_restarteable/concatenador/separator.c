@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #define FILE_BUFFER_SIZE 4096
+#define FILE_NAME_SIZE 32
 
 int min( int x, int y );
 
@@ -18,12 +19,17 @@ int main(int argc, char* argv[])//argv[1] debe ser el nombre del archivo que se 
 	//buffer usado para ir copiando los datos del archivo fuente a los archivos resultantes
 	char buffer[FILE_BUFFER_SIZE];
 	
-	int file_count = argc;
+	int file_count = 0;
 	
-	for (int i = 2; i < file_count; i++)
+	//se lee la cantidad de archivos en que se va a separar el archivo fuente
+	fread(&file_count, sizeof(int), 1, source_file);
+	
+	for (int i = 0; i < file_count; i++)
 	{
 		//se obtiene el nombre del i-ésimo archivo y se crea para escribirle los datos correspondientes
-		char* file_name = argv[i];
+		char file_name[FILE_NAME_SIZE];
+		//int len = strlen(file_name);
+		fread(file_name, sizeof(char), FILE_NAME_SIZE, source_file);
 		FILE* write_file = fopen(file_name, "wb");
 		if (write_file == NULL)
 		{

@@ -1,0 +1,45 @@
+Clase emisor:
+Atributos:
+	char* Datos leídos(buffer compartido con los datos más recientes leídos del archivo)
+	list<> Paquetes (lista de paqutes por enviar)
+	int Socket.
+	ifstream Archivo.
+	lock_t writelock1.
+	lock_t writelock2.
+	bool archivo leído
+	char bander de buffer Leer/Empaquetar
+	char bandera de lista Insertar/Enviar
+Funciones:
+	Leer archivo
+	Empaquetar.
+	Enviador/recibidor de red.
+
+Leer archivo:
+	Repetir hasta llegar a EOF
+		Mientras la bandera del buffer no es L(Leer)
+			Esperar.
+		Leer 512B del archivo al buffer.
+		Cambiar bandera de buffer a E(Empaquetar)
+	Encender archivo leído
+Empaquetar:
+	Repetir hasta que el archivo haya sido leído
+		Mientras la bandera del buffer no es E (Empaquetar)
+			Esperar.
+		Crear paquete.
+		Cambiar bandera del buffer a L (Leer)
+		Mientra la bander lista no es I (Insertar)
+			Esperar.
+		Insertar paquete en la lista.
+		Cambiar bandera de lista a E(enviar)
+Enviar/Recibir:
+	Repetir hasta que la lista esté vacía y el archivo haya sido leído
+		Mientras la bandera de lista no es E(Enviar)
+			Esperar
+		Si llega ack
+			Limpiar lista
+		Enviar todos los paquetes
+		Cambiar bandera de lista a I(insertar)
+Alarmar:
+	Repetir hasta que la lista esté vacía y el archivo haya sido leído
+		Esperar alarma
+		Programar siguiente alarma

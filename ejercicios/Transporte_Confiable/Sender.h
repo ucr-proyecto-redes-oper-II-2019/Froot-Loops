@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <omp.h>
 #include "my_functions.h"
 
@@ -30,7 +31,7 @@ class Sender
     char* my_port;
     char* ip;
     char* other_port;
-
+    char* file_name;
 	std::ifstream file;
     bool file_read;
     char buffer_flag;
@@ -45,12 +46,13 @@ class Sender
 	
   public:
 
-    Sender(char* my_port,char* ip = nullptr, char* other_port = nullptr,char* filename = nullptr,
+    Sender(char* my_port,char* ip = nullptr, char* other_port = nullptr, char*file_name = nullptr ,char* filename = nullptr,
            bool file_read = false, char buffer_flag = '\0',char list_flag ='\0',
            char* read_data = new char[512],int socket_fd = 0)
     :my_port{my_port},
     ip{ip},
     other_port{other_port},
+    file_name{file_name},
     file{filename, std::ios::in},
     file_read{file_read},
     buffer_flag{buffer_flag},
@@ -71,6 +73,7 @@ class Sender
 
 	int get_socket();
     char* get_read_data();
+    void file_reader();
 	
 
   

@@ -8,5 +8,4 @@ SOURCES += \
         main.cpp
 
 HEADERS += \
-    Sender.h \
-    my_functions.h
+    Sender.h

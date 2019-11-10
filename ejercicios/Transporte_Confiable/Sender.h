@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <omp.h>
+#include "my_functions.h"
 
 
 
@@ -26,27 +27,39 @@ class Sender
     DISABLE_COPY_CLASS(Sender)
   private:
   
-    int socket;
+    char* my_port;
+    char* ip;
+    char* other_port;
+
 	std::ifstream file;
     bool file_read;
     char buffer_flag;
     char list_flag;
-    struct sockaddr_in me, other;
+    struct sockaddr_in me;
+    struct sockaddr_in other;
     char* read_data;
     std::list <char*> packages;
     omp_lock_t writelock1;
     omp_lock_t writelock2;
+    int socket_fd;
 	
   public:
 
-	/*Sender(int socket = 0)
-	: socket{socket}{};*/
-	//Sender(){};
-    Sender(int socket = 0,std::ifstream file, char* read_data = new char[512])
-	:socket{socket},
-    file(filename),
-    read_data{read_data}
+    Sender(char* my_port,char* ip = nullptr, char* other_port = nullptr,char* filename = nullptr,
+           bool file_read = false, char buffer_flag = '\0',char list_flag ='\0',
+           char* read_data = new char[512],int socket_fd = 0)
+    :my_port{my_port},
+    ip{ip},
+    other_port{other_port},
+    file{filename, std::ios::in},
+    file_read{file_read},
+    buffer_flag{buffer_flag},
+    list_flag{list_flag},
+    read_data{read_data},
+    socket_fd{socket_fd}
     {
+        net_setup(&me,&other,my_port,ip,other_port);
+        socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
         omp_init_lock(&writelock1);
         omp_init_lock(&writelock2);
     }

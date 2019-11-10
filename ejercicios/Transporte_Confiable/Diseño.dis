@@ -7,6 +7,7 @@ Atributos:
 	lock_t writelock1.
 	lock_t writelock2.
 	bool archivo leído
+	bool l_is_full (list is full)
 	char bander de buffer Leer/Empaquetar
 	char bandera de lista Insertar/Enviar
 Funciones:
@@ -28,6 +29,8 @@ Empaquetar:
 		Crear paquete.
 		Cambiar bandera del buffer a L (Leer)
 		Mientra la bander lista no es I (Insertar)
+			Esperar.
+		Mientras lista esté llena
 			Esperar.
 		Insertar paquete en la lista.
 		Cambiar bandera de lista a E(enviar)

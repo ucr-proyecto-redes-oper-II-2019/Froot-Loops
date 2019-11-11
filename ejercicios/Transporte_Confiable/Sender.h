@@ -1,5 +1,6 @@
 #include <list>
 #include <fstream>
+#include <iostream>
 #include <cstring>
 #include <sys/stat.h>
 #include <arpa/inet.h>
@@ -10,6 +11,7 @@
 #include <omp.h>
 #include <cstring>
 #include <stdlib.h>
+
 
 union Data
 {
@@ -100,7 +102,7 @@ class Sender
     void file_reader();
 	
 	void send_package_receive_ack(struct sockaddr_in* source, struct sockaddr_in* dest);
-	void flush(list<char*>* list, int* my_RN, int ack_RN);
+    void flush(int my_RN, int ack_RN);
 };
 
 

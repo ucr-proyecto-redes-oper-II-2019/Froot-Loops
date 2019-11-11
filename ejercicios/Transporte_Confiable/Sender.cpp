@@ -91,7 +91,10 @@ void Sender::file_reader()
 
     while( !(file.eof()) )
     {
-        //REVISAR USO DE LOCK
+
+        while(this->buffer_flag != 'L')
+            ;
+
         omp_set_lock(&writelock1); //ADQUIERE EL LOCK
 
         if( pack_count == 0 ) //Si es el pack 0, los primeros 50 bytes son del nombre del archivo
@@ -102,12 +105,17 @@ void Sender::file_reader()
         {
             file.read( read_data, 512 );
         }
+
+        this->buffer_flag = 'E';
         omp_unset_lock(&writelock1); //SUELTA EL LOCK
+        pack_count++;
 
     }
+
     //Prende la bandera que indica que el archivo termino
     file_read = true;
     file.close();
+    std::cout << "Se terminó de leer el archivo con un total de: " << pack_count << "paquetes\n" << std::endl;
 
 }
 
@@ -123,17 +131,17 @@ void Sender::send_package_receive_ack(struct sockaddr_in* source, struct sockadd
 		if(bytes_received > 0 && package[0] == 1)
 		{
 			my_strncpy(data.str, package+1, 3);
-			flush(this->packages, RN, data.seq_num);
+            flush(RN, data.seq_num);
 		}
 		//falta mandar todos los paquetes
 	}
 }
 
-void Sender::flush(list<char*>* list, int* my_RN, int ack_RN)
+void Sender::flush(int my_RN, int ack_RN)
 {
-	while ( my_RN < ack_RN)
+    while ( my_RN < ack_RN )
     {
-        list.pop_front();
+        this->packages.pop_front();
         my_RN++;
     }
 }

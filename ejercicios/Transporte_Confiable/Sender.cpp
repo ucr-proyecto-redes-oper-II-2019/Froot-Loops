@@ -115,7 +115,7 @@ void Sender::file_reader()
     //Prende la bandera que indica que el archivo termino
     file_read = true;
     file.close();
-    std::cout << "Se terminó de leer el archivo con un total de: " << pack_count << "paquetes\n" << std::endl;
+    std::cout << "Se terminó de leer el archivo con un total de: " << pack_count << "paquetes" << std::endl;
 
 }
 

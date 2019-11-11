@@ -49,17 +49,19 @@ class Sender
     struct sockaddr_in me;
     struct sockaddr_in other;
     char* read_data;
+    char* package; //buffer usado para enviar y recibir paquetes
     std::list <char*> packages;
     omp_lock_t writelock1;
     omp_lock_t writelock2;
     int socket_fd;
     int SN;
+    int RN;
 	
   public:
 
     Sender(char* my_port,char* ip = nullptr, char* other_port = nullptr, char*file_name = nullptr ,char* filename = nullptr,
            bool file_read = false, char buffer_flag = 'L',char list_flag ='I',
-           char* read_data = new char[512],int socket_fd = 0, int SN = 0)
+           char* read_data = new char[512],char* package = new char[512],int socket_fd = 0, int SN = 0, int RN = 0)
     :my_port{my_port},
     ip{ip},
     other_port{other_port},
@@ -69,8 +71,10 @@ class Sender
     buffer_flag{buffer_flag},
     list_flag{list_flag},
     read_data{read_data},
+    package{package},
     socket_fd{socket_fd},
-    SN{SN}
+    SN{SN},
+    RN{RN}
     {
         net_setup(&me,&other,my_port,ip,other_port);
         socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -95,8 +99,8 @@ class Sender
     char* get_read_data();
     void file_reader();
 	
-
-  
+	void send_package_receive_ack(struct sockaddr_in* source, struct sockaddr_in* dest);
+	void flush(list<char*>* list, int* my_RN, int ack_RN);
 };
 
 

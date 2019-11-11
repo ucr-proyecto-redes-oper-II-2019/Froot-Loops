@@ -110,3 +110,30 @@ void Sender::file_reader()
     file.close();
 
 }
+
+void Sender::send_package_receive_ack(struct sockaddr_in* source, struct sockaddr_in* dest)
+{
+	while( !packages.empty() && !file.eof() )
+	{
+		while( this->list_flag != 'E')
+			;
+			
+		socklen_t recv_size = sizeof(dest);
+		int bytes_received = recvfrom(socket_fd, package, PACK_THROUGHPUT, MSG_DONTWAIT, (struct sockaddr*)&dest, &recv_size);
+		if(bytes_received > 0 && package[0] == 1)
+		{
+			my_strncpy(data.str, package+1, 3);
+			flush(this->packages, RN, data.seq_num);
+		}
+		//falta mandar todos los paquetes
+	}
+}
+
+void Sender::flush(list<char*>* list, int* my_RN, int ack_RN)
+{
+	while ( my_RN < ack_RN)
+    {
+        list.pop_front();
+        my_RN++;
+    }
+}

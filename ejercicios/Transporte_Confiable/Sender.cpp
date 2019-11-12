@@ -35,31 +35,41 @@ void Sender::net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, cha
 
 char* Sender::make_pakage(char* data_block)
 {
-    char* package = new char[516];
-    package[1] = SEND;
+    //Esto genera posible fuga mejor tener un solo paquete y caerle encima
+    //char* package = new char[516];
+
+    package[0] = SEND;
     data.seq_num = this->SN;
     my_strncpy( package+1, data.str, 3 );
-    my_strncpy( package+4, data_block, PACK_THROUGHPUT ); //se c
+    my_strncpy( package+4, data_block, PACK_THROUGHPUT );
     return package;
 }
 
 void Sender::packer()
 {
+    char* package = nullptr;
     while(!this->file_read)
     {
         while(this->buffer_flag != 'E')
             ;
 
         omp_set_lock(&this->writelock1);
-        make_pakage(this->read_data);
-        this->buffer_flag = 'L';
+        package = make_pakage(this->read_data);
         omp_unset_lock(&this->writelock1);
 
+        //Espero mi turno para usar la lista
         while(this->list_flag != 'I')
             ;
 
-        //while(this->packages)
+        omp_set_lock(&this->writelock2);
+        if(this->packages.size() < 10)
+        {
+            this->packages.push_back(package);
+            this->buffer_flag = 'L';
+        }
 
+        this->list_flag = 'E';
+        omp_unset_lock(&this->writelock2);
 
     }
 }
@@ -119,21 +129,27 @@ void Sender::file_reader()
 
 }
 
-void Sender::send_package_receive_ack(struct sockaddr_in* source, struct sockaddr_in* dest)
+void Sender::send_package_receive_ack()
 {
-	while( !packages.empty() && !file.eof() )
+    while( !packages.empty() && !this->file_read )
 	{
 		while( this->list_flag != 'E')
 			;
 			
-		socklen_t recv_size = sizeof(dest);
-		int bytes_received = recvfrom(socket_fd, package, PACK_THROUGHPUT, MSG_DONTWAIT, (struct sockaddr*)&dest, &recv_size);
+        socklen_t recv_size = sizeof(this->other);
+        ssize_t bytes_received = recvfrom(socket_fd, package, PACK_THROUGHPUT, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
 		if(bytes_received > 0 && package[0] == 1)
 		{
 			my_strncpy(data.str, package+1, 3);
             flush(RN, data.seq_num);
 		}
 		//falta mandar todos los paquetes
+        std::list<char*>::iterator it;
+        for (it = this->packages.begin(); it != this->packages.end(); ++it)
+        {
+            sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&other, recv_size);
+        }
+
 	}
 }
 

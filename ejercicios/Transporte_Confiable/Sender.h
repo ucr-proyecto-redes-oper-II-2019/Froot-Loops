@@ -11,6 +11,7 @@
 #include <omp.h>
 #include <cstring>
 #include <stdlib.h>
+#include <queue>
 
 
 union Data
@@ -21,6 +22,7 @@ union Data
 
 #define SEND 0
 #define PACK_THROUGHPUT 512
+#define PACK_SIZE 516
 
 
 
@@ -48,6 +50,7 @@ class Sender
     bool file_read;
     char buffer_flag;
     char list_flag;
+
     struct sockaddr_in me;
     struct sockaddr_in other;
     char* read_data;
@@ -58,6 +61,7 @@ class Sender
     int socket_fd;
     int SN;
     int RN;
+   //char package [516];
 	
   public:
 
@@ -101,7 +105,7 @@ class Sender
     char* get_read_data();
     void file_reader();
 	
-	void send_package_receive_ack(struct sockaddr_in* source, struct sockaddr_in* dest);
+    void send_package_receive_ack();
     void flush(int my_RN, int ack_RN);
 };
 

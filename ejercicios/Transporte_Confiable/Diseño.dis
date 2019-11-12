@@ -27,12 +27,11 @@ Empaquetar:
 		Mientras la bandera del buffer no es E (Empaquetar)
 			Esperar.
 		Crear paquete.
-		Cambiar bandera del buffer a L (Leer)
 		Mientra la bander lista no es I (Insertar)
-			Esperar.
-		Mientras lista esté llena
-			Esperar.
-		Insertar paquete en la lista.
+			Esperar
+		Si la lista no está llena
+			inserto en la lista
+			cambio el buffer flag a L
 		Cambiar bandera de lista a E(enviar)
 Enviar/Recibir:
 	Repetir hasta que la lista esté vacía y el archivo haya sido leído

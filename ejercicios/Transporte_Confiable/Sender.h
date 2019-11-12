@@ -67,7 +67,7 @@ class Sender
 
     Sender(char* my_port,char* ip = nullptr, char* other_port = nullptr, char*file_name = nullptr ,char* filename = nullptr,
            bool file_read = false, char buffer_flag = 'L',char list_flag ='I',
-           char* read_data = new char[512],char* package = new char[512],int socket_fd = 0, int SN = 0, int RN = 0)
+           char* read_data = new char[512],char* package = new char[516],int socket_fd = 0, int SN = 0, int RN = 0)
     :my_port{my_port},
     ip{ip},
     other_port{other_port},
@@ -106,7 +106,7 @@ class Sender
     void file_reader();
 	
     void send_package_receive_ack();
-    void flush(int my_RN, int ack_RN);
+    void flush(int* my_RN, int ack_RN);
 };
 
 

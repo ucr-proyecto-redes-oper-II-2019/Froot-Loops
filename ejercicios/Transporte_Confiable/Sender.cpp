@@ -137,23 +137,23 @@ void Sender::send_package_receive_ack()
 			;
 			
         socklen_t recv_size = sizeof(this->other);
-        ssize_t bytes_received = recvfrom(socket_fd, package, PACK_THROUGHPUT, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+        ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
 		if(bytes_received > 0 && package[0] == 1)
 		{
 			my_strncpy(data.str, package+1, 3);
-            flush(RN, data.seq_num);
+            flush(&RN, data.seq_num);
 		}
 		//falta mandar todos los paquetes
         std::list<char*>::iterator it;
         for (it = this->packages.begin(); it != this->packages.end(); ++it)
         {
-            sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&other, recv_size);
+            sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, &recv_size);
         }
 
 	}
 }
 
-void Sender::flush(int my_RN, int ack_RN)
+void Sender::flush(int* my_RN, int ack_RN)
 {
     while ( my_RN < ack_RN )
     {

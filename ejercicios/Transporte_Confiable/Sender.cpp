@@ -1,5 +1,11 @@
 #include "Sender.h"
-#include <omp.h>
+//#include <omp.h>
+
+union Data
+{
+  int seq_num;
+  char str[4];
+}data;
 
 //destructor
 Sender::~Sender()
@@ -8,6 +14,16 @@ Sender::~Sender()
     close(this->socket_fd);
     omp_destroy_lock(&writelock1);
     omp_destroy_lock(&writelock2);
+}
+
+int Sender::get_socket()
+{
+    return this->socket_fd;
+}
+
+char* Sender::get_read_data()
+{
+    return this->read_data;
 }
 
 char* Sender::my_strncpy(char *dest, const char *src, int n)
@@ -36,7 +52,7 @@ void Sender::net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, cha
 char* Sender::make_pakage(char* data_block)
 {
     //Esto genera posible fuga mejor tener un solo paquete y caerle encima
-    //char* package = new char[516];
+    char* package = new char[516];
 
     package[0] = SEND;
     data.seq_num = this->SN;
@@ -45,53 +61,18 @@ char* Sender::make_pakage(char* data_block)
     return package;
 }
 
-void Sender::packer()
-{
-    char* package = nullptr;
-    while(!this->file_read)
-    {
-        while(this->buffer_flag != 'E')
-            ;
-
-        omp_set_lock(&this->writelock1);
-        package = make_pakage(this->read_data);
-        omp_unset_lock(&this->writelock1);
-
-        //Espero mi turno para usar la lista
-        while(this->list_flag != 'I')
-            ;
-
-        omp_set_lock(&this->writelock2);
-        if(this->packages.size() < 10)
-        {
-            this->packages.push_back(package);
-            this->buffer_flag = 'L';
-        }
-
-        this->list_flag = 'E';
-        omp_unset_lock(&this->writelock2);
-
-    }
-}
-
-
 void Sender::start_sending()
 {
-    char hilera[] = "Hola";
-    packages.push_back(hilera);
-
-    file_reader();
-}
-
-
-int Sender::get_socket()
-{
-    return this->socket_fd;
-}
-
-char* Sender::get_read_data()
-{
-    return this->read_data;
+    #pragma omp parallel num_threads(3) //shared(data_block, last_package_read, all_data_read, list, wait_flag)
+    {
+        int my_thread_n = omp_get_thread_num(); //obtiene el identificador del hilo
+        if (my_thread_n == 0)
+            file_reader();
+        if (my_thread_n == 1)
+            packer();
+        if (my_thread_n == 2)
+            send_package_receive_ack();
+    }
 }
 
 void Sender::file_reader()
@@ -109,6 +90,7 @@ void Sender::file_reader()
 
         if( pack_count == 0 ) //Si es el pack 0, los primeros 50 bytes son del nombre del archivo
         {
+            my_strncpy(read_data,file_name,strlen(file_name));
             file.read( read_data+50, 462 ); //Deja los primeros 50 bytes vacios y el resto de datos
         }
         else //Para todos los demas, leee los 512 bytes completos
@@ -129,13 +111,43 @@ void Sender::file_reader()
 
 }
 
+void Sender::packer()
+{
+    char* new_package = nullptr;
+    while(!this->file_read)
+    {
+        while(this->buffer_flag != 'E')
+            ;
+
+        omp_set_lock(&this->writelock1);
+        new_package = make_pakage(this->read_data);
+        omp_unset_lock(&this->writelock1);
+
+        //Espero mi turno para usar la lista
+        while(this->list_flag != 'I')
+            ;
+
+        omp_set_lock(&this->writelock2);
+        if(this->packages.size() < 10)
+        {
+            this->packages.push_back(new_package);
+            this->buffer_flag = 'L';
+        }
+
+        this->list_flag = 'E';
+        omp_unset_lock(&this->writelock2);
+
+    }
+}
+
 void Sender::send_package_receive_ack()
 {
     while( !packages.empty() && !this->file_read )
 	{
 		while( this->list_flag != 'E')
 			;
-			
+
+        omp_set_lock(&writelock2);
         socklen_t recv_size = sizeof(this->other);
         ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
 		if(bytes_received > 0 && package[0] == 1)
@@ -143,11 +155,13 @@ void Sender::send_package_receive_ack()
 			my_strncpy(data.str, package+1, 3);
             flush(&RN, data.seq_num);
 		}
+        this->list_flag = 'I';
+        omp_unset_lock(&writelock2);
 		//falta mandar todos los paquetes
         std::list<char*>::iterator it;
         for (it = this->packages.begin(); it != this->packages.end(); ++it)
         {
-            sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, &recv_size);
+            sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
         }
 
 	}
@@ -155,9 +169,11 @@ void Sender::send_package_receive_ack()
 
 void Sender::flush(int* my_RN, int ack_RN)
 {
-    while ( my_RN < ack_RN )
+    while ( *my_RN < ack_RN )
     {
+        char* ptr = this->packages.front();
         this->packages.pop_front();
-        my_RN++;
+        delete ptr;
+        *(my_RN)++;
     }
 }

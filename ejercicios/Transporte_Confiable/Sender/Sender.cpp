@@ -186,7 +186,6 @@ void Sender::send_package_receive_ack()
         {
             sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
         }
-
 	}
 }
 

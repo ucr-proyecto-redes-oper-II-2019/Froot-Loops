@@ -102,6 +102,9 @@ class Sender
 	
     void send_package_receive_ack();
     void flush(int* my_RN, int ack_RN);
+
+    void reader_dummy();
+    void dummy_sender();
 };
 
 

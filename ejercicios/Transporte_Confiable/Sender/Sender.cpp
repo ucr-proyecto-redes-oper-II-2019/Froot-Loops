@@ -1,54 +1,113 @@
 #include "Sender.h"
-//#include <omp.h>
 
 union Data
 {
-  int seq_num;
-  char str[4];
+    int seq_num;
+    char str[4];
 }data;
 
-//destructor
+//Constructor
+Sender::Sender(char *my_port, char *ip, char *other_port, char *file_name)
+{
+    this->my_port = my_port;
+    this->destiny_ip = ip;
+    this->destiny_port = other_port;
+    this->file_name = file_name;
+
+    this->file_read_flag = false;
+    this->setup_failure = false;
+
+    this->buffer_flag = 'L';
+    this->list_flag = 'I';
+
+    this->shared_buffer = new char[PACK_THROUGHPUT];
+    this->package = new char[PACK_SIZE];
+
+    this->socket_fd = 0;
+    this->RN = 0;
+    this->SN = 0;
+
+    omp_init_lock(&writelock1);
+    omp_init_lock(&writelock2);
+
+    net_setup(&me,&other,my_port,ip,other_port);
+    file.open(file_name);
+    if(!file)
+    {
+        std::cerr << "Sender: Error opening file: " << file_name << ", aborting program." << std::endl;
+        this->setup_failure = true;
+    }
+}
+
+//Destructor
 Sender::~Sender()
 {
-	delete[] this->read_data;
+    delete[] this->shared_buffer;
+    delete[] this->package;
     close(this->socket_fd);
     omp_destroy_lock(&writelock1);
     omp_destroy_lock(&writelock2);
 }
 
+//Socket Getter
 int Sender::get_socket()
 {
     return this->socket_fd;
 }
 
+//Shared buffer Getter
 char* Sender::get_read_data()
 {
-    return this->read_data;
+    return this->shared_buffer;
 }
 
+//Setup-flag Getter
+bool Sender::get_setup_failure()
+{
+    return this->setup_failure;
+}
+
+//Custom version of strncpy
 char* Sender::my_strncpy(char *dest, const char *src, int n)
 {
     for (int i = 0; i < n; i++)
+    {
         dest[i] = src[i];
+    }
 
     return dest;
 }
 
-
+//Net Setup, initialize registers and setup socket
 void Sender::net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, char* my_port, char* destiny_ip, char* destiny_port)
 {
-  bzero(source, sizeof(*source)); //se limpian ambos registros de antemano
-  bzero(dest, sizeof(*dest));
+    bzero(source, sizeof(&source)); //se limpian ambos registros de antemano
+    bzero(dest, sizeof(&dest));
 
-  source->sin_family = AF_INET;
-  source->sin_addr.s_addr = INADDR_ANY; //se pueden recibir paquetes de cualquier fuente
-  source->sin_port = htons(atoi(my_port));//Mi puerto donde estoy escuchando
+    source->sin_addr.s_addr = INADDR_ANY; //se pueden recibir paquetes de cualquier fuente
+    source->sin_port = htons(atoi(my_port));//Mi puerto donde estoy escuchando
+    source->sin_family = AF_INET;
 
-  dest->sin_family = AF_INET;
-  dest->sin_addr.s_addr = inet_addr(destiny_ip); //IP destino se especifica en el 2do parametro de linea de comando
-  dest->sin_port = htons(atoi(destiny_port)); //el puerto a donde envío se especifica en el 3er parámetro de la línea de comando
+    dest->sin_family = AF_INET;
+    dest->sin_addr.s_addr = inet_addr(destiny_ip); //IP destino se especifica en el 2do parametro de linea de comando
+    dest->sin_port = htons(atoi(destiny_port)); //el puerto a donde envío se especifica en el 3er parámetro de la línea de comando
+
+    socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if(socket_fd == -1)
+    {
+        std::cerr << "Sender: Error: Could not create socket correctly, aborting probram." << std::endl;
+        this->setup_failure = true;
+    }
+
+    int check_bind = bind(socket_fd,(struct sockaddr*)&me,sizeof(me));
+    if(check_bind == -1)
+    {
+        std::cerr << "Sender: Error: Could not bind correctly, aborting probram." << std::endl;
+        this->setup_failure = true;
+    }
 }
 
+//Build package along with net header
 char* Sender::make_pakage(char* data_block)
 {
     //Esto genera posible fuga mejor tener un solo paquete y caerle encima
@@ -61,6 +120,18 @@ char* Sender::make_pakage(char* data_block)
     return package;
 }
 
+//Flush old packages from list
+void Sender::flush(int* my_RN, int ack_RN)
+{
+    while ( *my_RN < ack_RN )
+    {
+        char* ptr = this->package_list.front();
+        this->package_list.pop_front();
+        delete ptr;
+        *(my_RN)++;
+    }
+}
+
 void Sender::start_sending()
 {
     #pragma omp parallel num_threads(3) //shared(data_block, last_package_read, all_data_read, list, wait_flag)
@@ -71,27 +142,18 @@ void Sender::start_sending()
         if (my_thread_n == 1)
             packer();
         if (my_thread_n == 2)
-            dummy_sender();
+        {
+            //send_package_receive_ack();
+            //dummy_sender();
+            even_dummier_sender();
+        }
     }
-
-
-
-    /*#pragma omp parallel num_threads(3) //shared(data_block, last_package_read, all_data_read, list, wait_flag)
-    {
-        int my_thread_n = omp_get_thread_num(); //obtiene el identificador del hilo
-        if (my_thread_n == 0)
-            file_reader();
-        if (my_thread_n == 1)
-            packer();
-        if (my_thread_n == 2)
-            send_package_receive_ack();
-    }*/
 }
+
 
 void Sender::file_reader()
 {
     int pack_count = 0;
-    file.open(file_name);
 
     while( !(file.eof()) )
     {
@@ -103,22 +165,20 @@ void Sender::file_reader()
 
         if( pack_count == 0 ) //Si es el pack 0, los primeros 50 bytes son del nombre del archivo
         {
-            my_strncpy(read_data,file_name,strlen(file_name));
-            file.read( read_data+50, 462 ); //Deja los primeros 50 bytes vacios y el resto de datos
+            my_strncpy(shared_buffer,file_name,strlen(file_name));
+            file.read( shared_buffer+50, 462 ); //Deja los primeros 50 bytes vacios y el resto de datos
         }
         else //Para todos los demas, leee los 512 bytes completos
         {
-            file.read( read_data, 512 );
+            file.read( shared_buffer, 512 );
         }
 
         this->buffer_flag = 'E';
         omp_unset_lock(&writelock1); //SUELTA EL LOCK
         pack_count++;
-         //std::cout << "aún no termino" << std::endl;
     }
-
     //Prende la bandera que indica que el archivo termino
-    file_read = true;
+    file_read_flag = true;
     file.close();
     std::cout << "Se terminó de leer el archivo con un total de: " << pack_count << " paquetes" << std::endl;
 
@@ -127,78 +187,85 @@ void Sender::file_reader()
 void Sender::packer()
 {
     char* new_package = nullptr;
-    while(!this->file_read)
+    while(!this->file_read_flag)
     {
         while(this->buffer_flag != 'E')
             ;
 
-        //std::cout << "packer toma candado buffer" << std::endl;
         omp_set_lock(&this->writelock1);
-        new_package = make_pakage(this->read_data);
+        new_package = make_pakage(this->shared_buffer);
         omp_unset_lock(&this->writelock1);
-        //std::cout << "packer suelta candado buffer" << std::endl;
 
         //Espero mi turno para usar la lista
-
         while(this->list_flag != 'I')
             ;
 
         //std::cout << "packer toma candado lista" << std::endl;
         omp_set_lock(&this->writelock2);
-        if(this->packages.size() < 10)
+        if(this->package_list.size() < 10)
         {
             //std::cout << " voy a insertar "<< packages.size() << std::endl;
-            this->packages.push_back(new_package);
+            this->package_list.push_back(new_package);
+            // std::cout << "Voy a insertar: " << new_package+4 << std::endl;
+            // std::cout << "Acompañado de:  " << new_package+54 << std::endl;
             //std::cout << "List s: " << packages.size() << std::endl;
             this->buffer_flag = 'L';
         }
 
         this->list_flag = 'E';
         omp_unset_lock(&this->writelock2);
-        //std::cout << "packer suelta candado lista" << std::endl;
-
-        //std::cout << "Estoy en el packer" << std::endl;
-
     }
 }
 
 
 void Sender::send_package_receive_ack()
 {
-    while( !packages.empty() || !this->file_read )
-	{
-		while( this->list_flag != 'E')
-			;
+    socklen_t recv_size = sizeof(this->other);
+    while( !package_list.empty() || !this->file_read_flag )
+    {
+        while( this->list_flag != 'E')
+            ;
 
         omp_set_lock(&writelock2);
-        socklen_t recv_size = sizeof(this->other);
         ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
-		if(bytes_received > 0 && package[0] == 1)
-		{
-			my_strncpy(data.str, package+1, 3);
+        if(bytes_received > 0 && package[0] == 1)
+        {
+            my_strncpy(data.str, package+1, 3);
             flush(&RN, data.seq_num);
-		}
+        }
         this->list_flag = 'I';
         omp_unset_lock(&writelock2);
-		//falta mandar todos los paquetes
+        //falta mandar todos los paquetes
         std::list<char*>::iterator it;
-        for (it = this->packages.begin(); it != this->packages.end(); ++it)
+        for (it = this->package_list.begin(); it != this->package_list.end(); ++it)
         {
-            sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+            std::cout << "Voy a mandar estos datos: " << *it+54 << std::endl;
+            ssize_t bytes_send = sendto(this->socket_fd, *it+54,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+            std::cout << "Bytes enviados: " << bytes_send << std::endl;
         }
-	}
-}
+    }
 
-void Sender::flush(int* my_RN, int ack_RN)
-{
-    while ( *my_RN < ack_RN )
+    bool surrender_flag = false;
+
+    this->shared_buffer[0] = '*';
+    this->package = make_pakage(this->shared_buffer);
+
+    for(int i = 0; i < 100 && !surrender_flag; ++i)
     {
-        char* ptr = this->packages.front();
-        this->packages.pop_front();
-        delete ptr;
-        *(my_RN)++;
+        sendto(this->socket_fd,package,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+        sleep(1);
+        ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+        if(bytes_received > 0 && package[0] == 1)
+        {
+
+            my_strncpy(data.str, package+1, 3);
+            if(data.seq_num == RN)
+                surrender_flag = true;
+        }
     }
 }
+
+//-----------------------------------------------------------TESTING--------------------------------------------------//
 
 void Sender::reader_dummy()
 {
@@ -207,7 +274,7 @@ void Sender::reader_dummy()
     std::ofstream archivo_dummy;
     archivo_dummy.open("dummy.jpg");
 
-    while ( !this->file_read )
+    while ( !this->file_read_flag )
     {
         while( this->buffer_flag != 'E')
             ;
@@ -217,14 +284,14 @@ void Sender::reader_dummy()
         if(pack_count_dummy == 0)
         {
             char dummy_name[50] ;
-            my_strncpy( dummy_name, read_data, 50 );
+            my_strncpy( dummy_name, shared_buffer, 50 );
             std::cout << "Nombre Archivo: " << dummy_name << std::endl;
 
-            archivo_dummy.write( read_data+50, 462 );
+            archivo_dummy.write( shared_buffer+50, 462 );
         }
         else
         {
-            archivo_dummy.write( read_data, PACK_THROUGHPUT );
+            archivo_dummy.write( shared_buffer, PACK_THROUGHPUT );
         }
 
         this->buffer_flag = 'L';
@@ -241,10 +308,10 @@ void Sender::dummy_sender()
 {
     int pack_count_dummy = 0;
     std::ofstream archivo_dummy;
-    archivo_dummy.open("dummy.jpg");
+    archivo_dummy.open("dummy.txt");
 
     //for(int z = 0; z < 288; ++z)
-    while( packages.empty() == false || this->file_read == false )
+    while( package_list.empty() == false || this->file_read_flag == false )
     {
         //std::cout << "List s: " << packages.size() << std::endl;
 
@@ -253,12 +320,14 @@ void Sender::dummy_sender()
 
         //std::cout << "sender toma candado lista" << std::endl;
         omp_set_lock(&writelock2);
-        if(packages.size() >= 1)
+        if(package_list.size() >= 1)
         {
             //std::cout << "Antes " << std::endl;
             std::list<char*>::iterator it;
-            for (it = this->packages.begin(); it != this->packages.end(); ++it)
+            for (it = this->package_list.begin(); it != this->package_list.end(); ++it)
             {
+
+                std::cout << "Esto es lo que tengo: " << *it << std::endl;
                 //std::cout << "Despues " << std::endl;
                 if(pack_count_dummy == 0)
                 {
@@ -266,6 +335,7 @@ void Sender::dummy_sender()
                     my_strncpy( dummy_name, *it+4, 50 );
                     std::cout << "Nombre Archivo: " << dummy_name << std::endl;
                     archivo_dummy.write( *it+54, 462 );
+                    std::cout << "Acompañado de: " << *it+54 << std::endl;
                 }
                 else
                 {
@@ -275,12 +345,12 @@ void Sender::dummy_sender()
             }
         }
         //flush
-        if(packages.size() >= 1)
+        if(package_list.size() >= 1)
         {
-            for(int i = 0; i < packages.size(); ++i)
+            for(int i = 0; i < package_list.size(); ++i)
             {
-                char* ptr = this->packages.front();
-                this->packages.pop_front();
+                char* ptr = this->package_list.front();
+                this->package_list.pop_front();
                 delete ptr;
             }
         }
@@ -293,3 +363,19 @@ void Sender::dummy_sender()
     archivo_dummy.close();
     std::cout << "Archivo Dummy Finalizado!" << std::endl;
 }
+
+void Sender::even_dummier_sender()
+{
+    socklen_t recv_size = sizeof(this->other);
+    while( !package_list.empty() || !this->file_read_flag )
+    {
+        std::list<char*>::iterator it;
+        for (it = this->package_list.begin(); it != this->package_list.end(); ++it)
+        {
+            std::cout << "Voy a mandar estos datos: " << *it+54 << std::endl;
+            ssize_t bytes_send = sendto(this->socket_fd, *it+54,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+            std::cout << "Bytes enviados: " << bytes_send << std::endl;
+        }
+    }
+}
+

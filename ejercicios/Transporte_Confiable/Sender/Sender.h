@@ -77,7 +77,7 @@ class Sender
         char* my_strncpy(char *dest, const char *src, int n);
         char* make_pakage(char *data_block);
         void net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, char* my_port, char* destiny_ip, char* destiny_port);
-        void flush(int* my_RN, int ack_RN);
+        void flush(int ack_RN);
 
         //Getters y Setters
         bool get_setup_failure();

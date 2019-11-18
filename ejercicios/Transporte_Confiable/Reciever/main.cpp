@@ -35,6 +35,7 @@ int main(int argc, char** argv)
 	struct sockaddr_in other;
 	int pack_count_dummy = 0;
 	char package[PACK_SIZE];
+	char mi_paquete[50];
 	std::ofstream file;
 	
 	bzero(&me, sizeof(me));
@@ -63,21 +64,42 @@ int main(int argc, char** argv)
     {
 							//readB = recvfrom(sockfd, message, sizeof(message), MSG_DONTWAIT, (struct sockaddr*)&other, &len);
          ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&other, &recv_size);
-         
+         //ssize_t bytes_received = recvfrom(socket_fd, mi_paquete, 50, MSG_DONTWAIT, (struct sockaddr*)&other, &recv_size);
+        /* if(bytes_received > 0)
+         {
+			 
+			 std::cout << "Me llegó un paquete con: " << package+54 << std::endl;
+			 std::cout << "Primer byte " << (int)package[0] << std::endl;
+			 package[0] = 1;
+			 data.seq_num = pack_count_dummy;
+			 my_strncpy( package+1, data.str, 3 );         
+			 
+			 for(int i = 0; i < 10000; i++)
+				int bytes_send = sendto(socket_fd,package,PACK_SIZE,0, (struct sockaddr*)&other, recv_size);
+			 //std::cout << "Ack enviado con " << bytes_send << std::endl;
+			 flag = true;
+			 
+		 }*/
          if(bytes_received > 0)
          {
 			 
-			std::cout << "Primer byte " << (int)package[0] << std::endl;
+			//std::cout << "Primer byte " << (int)package[0] << std::endl;
 			 
             my_strncpy(data.str, package+1, 3);
-            std::cout << "Data seq: " << data.seq_num << std::endl;
+            //std::cout << "Data seq: " << data.seq_num << std::endl;
             
-            if(package[4] == '*')
-				flag = true;
+           
              
             if(data.seq_num == pack_count_dummy)
             {
-				std::cout << "Entré al if " << std::endl;
+				
+				 if(package[4] == '*')
+				 {
+					 flag = true;
+				 }
+					
+				
+				//std::cout << "Entré al if " << std::endl;
 				if(pack_count_dummy == 0)
 				{
 					char dummy_name[50];
@@ -100,12 +122,22 @@ int main(int argc, char** argv)
 				my_strncpy( package+1, data.str, 3 );         
 				 
 				int bytes_send = sendto(socket_fd,package,PACK_SIZE,0, (struct sockaddr*)&other, recv_size);
-				std::cout << "Ack enviado con " << bytes_send << std::endl;
+				//std::cout << "Ack enviado con " << bytes_send << std::endl;
 			}
+			
+			//flag = true;
 
          }
+         
 
     }
+    
+    for(int i = 0; i < 5; ++i)
+    {
+		usleep(5000);
+		//sleep(1);
+		sendto(socket_fd,package,PACK_SIZE,0, (struct sockaddr*)&other, recv_size);
+	}
     
     file.close();
     

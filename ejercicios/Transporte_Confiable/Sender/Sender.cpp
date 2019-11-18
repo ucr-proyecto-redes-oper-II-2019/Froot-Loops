@@ -123,14 +123,19 @@ char* Sender::make_pakage(char* data_block)
 //Flush old packages from list
 void Sender::flush(int ack_RN)
 {
-    while ( this->RN <= ack_RN )
+    //std::cout << "Haré flush tamño lista:" << this->package_list.size() << std::endl;
+    //std::cout << "El ack rn es: " << ack_RN << std::endl;
+
+    while ( this->RN < ack_RN )
     {
         char* ptr = this->package_list.front();
+        //if(this->package_list.size() > 0)
         this->package_list.pop_front();
         delete ptr;
         this->RN++;
         //*(my_RN)++;
     }
+
 }
 
 void Sender::start_sending()
@@ -208,46 +213,63 @@ void Sender::packer()
 
             this->package_list.push_back(new_package);
             this->SN++;
-             std::cout << "SN depués de insertar:" << this->SN << std::endl;
+            //std::cout << "SN depués de insertar:" << this->SN << std::endl;
             this->buffer_flag = 'L';
         }
 
+        //if(!this->file_read_flag)
         this->list_flag = 'E';
         omp_unset_lock(&this->writelock2);
     }
+    //this->list_flag = 'E';
 }
 
 
 void Sender::send_package_receive_ack()
 {
+    //char mi_paquete[] = "Esta es la prueba de los paquetes";
     socklen_t recv_size = sizeof(this->other);
     while( !package_list.empty() || !this->file_read_flag )
     {
+        //std::cout << "Empecé el ciclo " << std::endl;
         while( this->list_flag != 'E')
-            ;
+        {
+           ; //std::cout << "Estoy esperando"  << std::endl;
+        }
+
 
         omp_set_lock(&writelock2);
         ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
         if(bytes_received > 0 && package[0] == 1)
         {
+            //std::cout << "Recibí mi tamaño es " << this->package_list.size() << std::endl;
             my_strncpy(data.str, package+1, 3);
-            std::cout << "ack rn: " << data.seq_num << std::endl;
-            std::cout << "RN antes de flush: " << this->RN << std::endl;
+//            std::cout << "ack rn: " << data.seq_num << std::endl;
+//            std::cout << "RN antes de flush: " << this->RN << std::endl;
             flush(data.seq_num);
-            std::cout << "RN después de flush: " << this->RN << std::endl;
+//            std::cout << "RN después de flush: " << this->RN << std::endl;
+//            std::cout << "Tamaño de la lista después: " << this->package_list.size() << std::endl;
         }
-        this->list_flag = 'I';
+
+        if(!this->file_read_flag)
+            this->list_flag = 'I';
+
         omp_unset_lock(&writelock2);
         //falta mandar todos los paquetes
         std::list<char*>::iterator it;
         for (it = this->package_list.begin(); it != this->package_list.end(); ++it)
         {
-             std::cout << "Paquete enviado con primer byte "<< (int)package[0] << std::endl;
-            ssize_t bytes_send = sendto(this->socket_fd, *it+54,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
-            std::cout << "Bytes enviados: " << bytes_send << std::endl;
+//            std::cout << "Paquete enviado con primer byte "<< (int)package[0] << std::endl;
+//            std::cout << "Paquete de prueba lleno de texto " << mi_paquete << std::endl;
+//            ssize_t bytes_send = sendto(this->socket_fd, *it+54,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+            ssize_t bytes_send = sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+
+//            static_cast<int>
+//            ssize_t bytes_send = sendto(this->socket_fd, mi_paquete ,50,0, (struct sockaddr*)&this->other, recv_size);
+//            std::cout << "Bytes enviados: " << bytes_send << std::endl;
         }
 
-        sleep(2);
+        //sleep(2);
     }
 
     bool surrender_flag = false;
@@ -255,18 +277,18 @@ void Sender::send_package_receive_ack()
     this->shared_buffer[0] = '*';
     this->package = make_pakage(this->shared_buffer);
 
-    for(int i = 0; i < 100 && !surrender_flag; ++i)
+    for(int i = 0; i < 5 && !surrender_flag; ++i)
     {
         sendto(this->socket_fd,package,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
-        sleep(1);
+        usleep(500000);
         ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
         if(bytes_received > 0 && package[0] == 1)
         {
-
             my_strncpy(data.str, package+1, 3);
             if(data.seq_num == RN)
                 surrender_flag = true;
         }
+
     }
 }
 

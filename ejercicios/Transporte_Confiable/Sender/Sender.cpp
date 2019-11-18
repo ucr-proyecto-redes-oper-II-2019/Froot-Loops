@@ -186,7 +186,7 @@ void Sender::file_reader()
     //Prende la bandera que indica que el archivo termino
     file_read_flag = true;
     file.close();
-    std::cout << "Se terminó de leer el archivo con un total de: " << pack_count << " paquetes" << std::endl;
+    std::cout << "File Reader: Se terminó de leer el archivo con un total de: " << pack_count << " paquetes" << std::endl;
 
 }
 
@@ -204,7 +204,11 @@ void Sender::packer()
 
         //Espero mi turno para usar la lista
         while(this->list_flag != 'I')
-            ;
+        {
+            std::cout << "Packer: Esperando bandera list flag" << std::endl;
+            usleep(100);
+        }
+            //;
 
         //std::cout << "packer toma candado lista" << std::endl;
         omp_set_lock(&this->writelock2);
@@ -217,11 +221,12 @@ void Sender::packer()
             this->buffer_flag = 'L';
         }
 
-        //if(!this->file_read_flag)
         this->list_flag = 'E';
         omp_unset_lock(&this->writelock2);
     }
-    //this->list_flag = 'E';
+
+
+    std::cout << "Packer: Se metió el último paquete a la lista" << std::endl;
 }
 
 
@@ -264,15 +269,17 @@ void Sender::send_package_receive_ack()
 //            ssize_t bytes_send = sendto(this->socket_fd, *it+54,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
             ssize_t bytes_send = sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
 
-//            static_cast<int>
+
 //            ssize_t bytes_send = sendto(this->socket_fd, mi_paquete ,50,0, (struct sockaddr*)&this->other, recv_size);
-//            std::cout << "Bytes enviados: " << bytes_send << std::endl;
+            std::cout << "Bytes enviados: " << bytes_send << std::endl;
         }
 
         //sleep(2);
     }
 
+    std::cout << "Pitcher: Entrando en periodo de give-up" << std::endl;
     bool surrender_flag = false;
+    this->list_flag = 'I';
 
     this->shared_buffer[0] = '*';
     this->package = make_pakage(this->shared_buffer);
@@ -281,6 +288,9 @@ void Sender::send_package_receive_ack()
     {
         sendto(this->socket_fd,package,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
         usleep(500000);
+
+        std::cout << "Pitcher: Esperando por el ack final" << std::endl;
+
         ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
         if(bytes_received > 0 && package[0] == 1)
         {
@@ -288,7 +298,6 @@ void Sender::send_package_receive_ack()
             if(data.seq_num == RN)
                 surrender_flag = true;
         }
-
     }
 }
 

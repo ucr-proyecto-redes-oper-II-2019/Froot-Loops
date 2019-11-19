@@ -1,4 +1,4 @@
-#include "light_sender.h"
+#include "tcpl.h"
 
 union Data
 {
@@ -6,14 +6,20 @@ union Data
     char str[4];
 }data;
 
-ligth_sender::~ligth_sender()
+struct Element
+{
+	char* element_package;
+	int ttl;
+};
+
+tcpl::~tcpl()
 {
     delete[] this->shared_buffer;
     delete[] this->package;
     close(this->socket_fd);
 }
 
-ligth_sender::ligth_sender(char *my_port, char *ip, char *other_port, char *file_name)
+tcpl::tcpl(char *my_port, char *ip, char *other_port, char *file_name)
 {
 
     this->my_port = my_port;
@@ -42,9 +48,9 @@ ligth_sender::ligth_sender(char *my_port, char *ip, char *other_port, char *file
     }
 }
 
-//--------------------------------------------
+//---------------------------------------------------------------------------------------
 //funciones de utilidad
-char* ligth_sender::my_strncpy(char *dest, const char *src, int n)
+char* tcpl::my_strncpy(char *dest, const char *src, int n)
 {
     for (int i = 0; i < n; i++)
     {
@@ -55,7 +61,7 @@ char* ligth_sender::my_strncpy(char *dest, const char *src, int n)
 }
 
 //Net Setup, initialize registers and setup socket
-void ligth_sender::net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, char* my_port, char* destiny_ip, char* destiny_port)
+void tcpl::net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, char* my_port, char* destiny_ip, char* destiny_port)
 {
     bzero(source, sizeof(&source)); //se limpian ambos registros de antemano
     bzero(dest, sizeof(&dest));
@@ -83,7 +89,7 @@ void ligth_sender::net_setup(struct sockaddr_in* source, struct sockaddr_in* des
     }
 }
 
-char* ligth_sender::make_pakage(char* data_block)
+char* tcpl::make_pakage(char* data_block)
 {
     //Esto genera posible fuga mejor tener un solo paquete y caerle encima
     char* package = new char[PACK_SIZE];

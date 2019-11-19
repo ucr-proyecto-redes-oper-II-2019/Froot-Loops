@@ -1,5 +1,5 @@
-#ifndef LIGTH_SENDER_H
-#define LIGTH_SENDER_H
+#ifndef TCPL_H
+#define TCPL_H
 
 #include <list>
 #include <fstream>
@@ -27,10 +27,10 @@ union Data;
     ClassName& operator=(const ClassName& other) = delete; \
     ClassName& operator=(ClassName&& temp) = delete;
 
-class ligth_sender
+class tcpl
 {
 
-DISABLE_COPY_CLASS(ligth_sender)
+DISABLE_COPY_CLASS(tcpl)
 private:
     bool file_read_flag;
     bool setup_failure;
@@ -55,12 +55,12 @@ private:
 
 public:
 
-    ligth_sender(char *my_port, char *ip, char *other_port, char *file_name);
-    ~ligth_sender();
+    tcpl(char *my_port, char *ip, char *other_port, char *file_name);
+    ~tcpl();
 
-     //Funciones de ligth_sender
-    void file_reader();
-    void packer();
+    //Funciones de ligth_sender
+    void send();
+    void receive();
 
     //Funciones de utilidad
     char* my_strncpy(char *dest, const char *src, int n);
@@ -68,4 +68,4 @@ public:
     void net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, char* my_port, char* destiny_ip, char* destiny_port);
 };
 
-#endif // LIGTH_SENDER_H
+#endif // TCPL_H

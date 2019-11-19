@@ -1,11 +1,11 @@
 #include <iostream>
-#include "light_sender.h"
+#include "tcpl.h"
 
 using namespace std;
 
 int main()
 {
-    ligth_sender();
+    tcpl sender(/*param*/);//construcción del tcpl
     cout << "Hello World!" << endl;
     return 0;
 }

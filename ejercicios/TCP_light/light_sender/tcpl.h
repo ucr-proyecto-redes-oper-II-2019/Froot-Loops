@@ -13,12 +13,22 @@
 #include <stdio.h>
 #include <omp.h>
 #include <stdlib.h>
+#include <unordered_map>
+
 
 #define SEND 0
 #define PACK_THROUGHPUT 1024
 #define PACK_SIZE 1029  //5 bytes de encabezado 1KB(1024bytes) de datos
 
 union Data;
+
+struct Element
+{
+	char* element_package;
+	int ttl;
+};
+
+typedef std::unordered_map<int,Element> element_map;
 
 /// Avoids instances of a class to be copied
 #define DISABLE_COPY_CLASS(ClassName) \
@@ -53,6 +63,7 @@ private:
     int SN;
     int RN;
 
+	element_map bag;
 public:
 
     tcpl(char *my_port, char *ip, char *other_port, char *file_name);
@@ -66,6 +77,7 @@ public:
     char* my_strncpy(char *dest, const char *src, int n);
     char* make_pakage(char *data_block);
     void net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, char* my_port, char* destiny_ip, char* destiny_port);
+    void start_sending();
 };
 
 #endif // TCPL_H

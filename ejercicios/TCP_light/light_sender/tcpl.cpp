@@ -6,12 +6,6 @@ union Data
     char str[4];
 }data;
 
-struct Element
-{
-	char* element_package;
-	int ttl;
-};
-
 tcpl::~tcpl()
 {
     delete[] this->shared_buffer;
@@ -94,12 +88,34 @@ char* tcpl::make_pakage(char* data_block)
     //Esto genera posible fuga mejor tener un solo paquete y caerle encima
     char* package = new char[PACK_SIZE];
 
-
     data.seq_num = this->SN;
     my_strncpy( package, data.str, 4 );
     package[4] = SEND;
     my_strncpy( package+5, data_block, PACK_THROUGHPUT );
     return package;
+}
+
+void tcpl::start_sending()
+{
+    #pragma omp parallel num_threads(3) //shared(data_block, last_package_read, all_data_read, list, wait_flag)
+    {
+        int my_thread_n = omp_get_thread_num(); //obtiene el identificador del hilo
+        //este hilo se encarga de meter la solicitud en la bolsa
+        if (my_thread_n == 0)
+        {
+			
+		}
+		//este hilo se encarga de la lectura en la bolsa (revisa las solicitudes y las envía)
+        if (my_thread_n == 1)
+        {
+				
+		}
+		//este hilo se encarga de sacar de la bolsa (espera acks para eliminar de las bolsas)
+        if (my_thread_n == 2)
+        {
+			
+        }
+    }
 }
 
 //--------------------------------------------

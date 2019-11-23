@@ -123,8 +123,6 @@ char* Sender::make_pakage(char* data_block)
 //Flush old packages from list
 void Sender::flush(int ack_RN)
 {
-    //std::cout << "Haré flush tamño lista:" << this->package_list.size() << std::endl;
-    //std::cout << "El ack rn es: " << ack_RN << std::endl;
 
     while ( this->RN < ack_RN )
     {
@@ -133,7 +131,8 @@ void Sender::flush(int ack_RN)
         this->package_list.pop_front();
         delete ptr;
         this->RN++;
-        //*(my_RN)++;
+
+        //std::cout << "Flooshy floshie lemon coochie" << std::endl;
     }
 
 }
@@ -144,14 +143,16 @@ void Sender::start_sending()
     {
         int my_thread_n = omp_get_thread_num(); //obtiene el identificador del hilo
         if (my_thread_n == 0)
+        {
             file_reader();
+        }
         if (my_thread_n == 1)
-            packer();
+        {
+            packer();           
+        }
         if (my_thread_n == 2)
         {
             send_package_receive_ack();
-            //dummy_sender();
-            //even_dummier_sender();
         }
     }
 }
@@ -205,7 +206,6 @@ void Sender::packer()
         //Espero mi turno para usar la lista
         while(this->list_flag != 'I')
         {
-            std::cout << "Packer: Esperando bandera list flag" << std::endl;
             usleep(100);
         }
             //;
@@ -217,7 +217,6 @@ void Sender::packer()
 
             this->package_list.push_back(new_package);
             this->SN++;
-            //std::cout << "SN depués de insertar:" << this->SN << std::endl;
             this->buffer_flag = 'L';
         }
 
@@ -239,21 +238,23 @@ void Sender::send_package_receive_ack()
         //std::cout << "Empecé el ciclo " << std::endl;
         while( this->list_flag != 'E')
         {
-           ; //std::cout << "Estoy esperando"  << std::endl;
+            ; //std::cout << "Estoy esperando"  << std::endl;
         }
-
 
         omp_set_lock(&writelock2);
         ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+
         if(bytes_received > 0 && package[0] == 1)
         {
-            //std::cout << "Recibí mi tamaño es " << this->package_list.size() << std::endl;
+
             my_strncpy(data.str, package+1, 3);
-//            std::cout << "ack rn: " << data.seq_num << std::endl;
-//            std::cout << "RN antes de flush: " << this->RN << std::endl;
-            flush(data.seq_num);
-//            std::cout << "RN después de flush: " << this->RN << std::endl;
-//            std::cout << "Tamaño de la lista después: " << this->package_list.size() << std::endl;
+
+            char seq[sizeof(int)] = {0, 0, 0, 0};
+            memcpy(seq+1, data.str  /*buffer que recibimos con el numero de sequencia de 3 bytes*/, 3);
+            int result = ntohl( *((int*) seq) );
+            //std::cout << "Ack recibido #: " << result << std::endl;
+
+            flush(result);
         }
 
         if(!this->file_read_flag)
@@ -264,17 +265,24 @@ void Sender::send_package_receive_ack()
         std::list<char*>::iterator it;
         for (it = this->package_list.begin(); it != this->package_list.end(); ++it)
         {
-//            std::cout << "Paquete enviado con primer byte "<< (int)package[0] << std::endl;
-//            std::cout << "Paquete de prueba lleno de texto " << mi_paquete << std::endl;
-//            ssize_t bytes_send = sendto(this->socket_fd, *it+54,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
-            ssize_t bytes_send = sendto(this->socket_fd, *it,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+            int recover = data.seq_num;
 
+            char temp_package[PACK_SIZE];
+            my_strncpy( temp_package, *it, PACK_SIZE );
+            my_strncpy( data.str, temp_package+1, 3);
 
-//            ssize_t bytes_send = sendto(this->socket_fd, mi_paquete ,50,0, (struct sockaddr*)&this->other, recv_size);
-            std::cout << "Bytes enviados: " << bytes_send << std::endl;
+            //Copia el numero de sequencia en endianess de red al paquete
+            int network_sequence = htonl( data.seq_num );
+            my_strncpy( temp_package+1, ((char*) &network_sequence+1), 3 );
+
+            ssize_t bytes_send = sendto(this->socket_fd, temp_package, PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
+            //std::cout << "Bytes enviados: " << bytes_send << " con seq num:" << network_sequence << std::endl;
+
+            data.seq_num = recover;
+            //usleep(500000);
         }
 
-        //sleep(2);
+
     }
 
     std::cout << "Pitcher: Entrando en periodo de give-up" << std::endl;
@@ -286,6 +294,9 @@ void Sender::send_package_receive_ack()
 
     for(int i = 0; i < 5 && !surrender_flag; ++i)
     {
+        int network_sequence = htonl( data.seq_num );
+        my_strncpy( package+1, ((char*) &network_sequence+1), 3 );
+
         sendto(this->socket_fd,package,PACK_SIZE,0, (struct sockaddr*)&this->other, recv_size);
         usleep(500000);
 
@@ -295,7 +306,13 @@ void Sender::send_package_receive_ack()
         if(bytes_received > 0 && package[0] == 1)
         {
             my_strncpy(data.str, package+1, 3);
-            if(data.seq_num == RN)
+
+            char seq[sizeof(int)] = {0, 0, 0, 0};
+            memcpy(seq+1, data.str  /*buffer que recibimos con el numero de sequencia de 3 bytes*/, 3);
+            int result = ntohl( *((int*) seq) );
+            //std::cout << "Seq recibido: " << result << std::endl;
+
+            if( (result) == RN)
                 surrender_flag = true;
         }
     }

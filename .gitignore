@@ -1,2 +1,4 @@
-out*
-
+*.user
+*.autosave
+build*
+out

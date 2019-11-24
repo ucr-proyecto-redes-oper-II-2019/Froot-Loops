@@ -15,6 +15,7 @@
 #include <fstream>
 #include <list>
 #include <sstream>
+#include <cstdlib>
 
 
 struct NODO
@@ -33,6 +34,11 @@ struct NODO
 #define SOCK_FAILED_ERROR -2
 #define BIND_FAILURE -3
 #define ERROR_FILE_NOT_FOUND -3
+#define ORANGE_MESSAGE_SIZE 9
+#define REQUEST_NUM 4
+#define BEGIN_CONFIRMATION_ANSWER 2
+#define TASK_TO_REALIZE 1
+#define PRIORITY_SIZE 2
 
 /// Avoids instances of a class to be copied
 #define DISABLE_COPY_CLASS(ClassName) \
@@ -46,35 +52,35 @@ class Nodo_naranja
 {
     DISABLE_COPY_CLASS(Nodo_naranja)
     private:
+
         struct sockaddr_in me;
         struct sockaddr_in other;
 
-        int socket_fd;
         bool setup_failure;
-        char* package;
+
+        int socket_fd;
         int contador_nodos_verdes;
+
+        char* package;
         char* filename;
+
         std::ifstream file;
-
         std::map < NODO, std::list <int> > grafo;
-        //std::map<NODO,std::list<int>> grafo;
-
-        //std::map<int, std::list<NODO>> grafo;
-
-
 
     public:
         Nodo_naranja(char* my_port,char* filename);
+        ~Nodo_naranja();
+
+        //Finciones del nodo naranja
         void start_listening();
         void net_setup(struct sockaddr_in* me, char* my_port);
 
-        //Function to read csv
-        void read_graph_from_csv();
+        //Funciones de utilidad
+        char* my_strncpy(char *dest, const char *src, int n);
         int get_num_nodos_verdes();
+        void read_graph_from_csv();
         void show_map();
+
 };
-
-
-
 
 #endif // NODO_NARANJA_H

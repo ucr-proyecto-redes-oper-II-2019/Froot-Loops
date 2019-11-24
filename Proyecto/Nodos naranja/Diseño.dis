@@ -5,7 +5,7 @@ Lógica del nodo naranja:
 
 Por siempre
 	si me llega un mensaje de un nodo verde y quedan nodos por instanciar
-		Repetir hasta conseguir respuesta positiva
+		Repetir hasta conseguir  todas las respuestas positivas
 			Seleccionar el siguiente nodo no instanciado en la topología
 			Repetir hasta que recibir respuesta de todos los vecinos naranja
 				Enviar mensaje a los vecinos naranja

@@ -4,11 +4,13 @@ Cargar la topología en un mapa de vectores así podemos indexar por número de 
 Lógica del nodo naranja:
 
 Por siempre
-	si me llega un mensaje de un nodo verde y quedan nodos por instanciar
-		Repetir hasta conseguir  todas las respuestas positivas
-			Seleccionar el siguiente nodo no instanciado en la topología
-			Repetir hasta que recibir respuesta de todos los vecinos naranja
-				Enviar mensaje a los vecinos naranja
-				Recibir mensaje de red.
+	si me llega un mensaje de un nodo verde y quedan nodos por instanciar.
+		(1)Seleccionar el siguiente nodo no instanciado en la topología.
+		Repetir hasta conseguir respuesta de todos los nodos.
+			Enviar mensaje a los vecinos naranja.
+			Recibir mensaje de red.
+		Si al menos una respuesta fue negativa		
+			saltar a (1)
+
 		Enviar mensaje de confirmación a los nodos naranja.
 		Enviar mensaje con los vecinos al verde solicitante.

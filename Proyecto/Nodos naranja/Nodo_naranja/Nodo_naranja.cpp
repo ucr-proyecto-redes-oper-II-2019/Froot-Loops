@@ -1,12 +1,5 @@
 #include "Nodo_naranja.h"
 
-union Data
-{
-    int seq_num;
-    char str[4];
-}data;
-
-
 //Constructor de nodo naranja
 Nodo_naranja::Nodo_naranja(char* my_port, char* filename)
 {
@@ -38,6 +31,7 @@ Nodo_naranja::~Nodo_naranja()
 
 //-------Funciones de Utilidad----------//
 
+
 //Simple inicializador con los datos de red proporcionados
 void Nodo_naranja::net_setup(struct sockaddr_in* me, char* my_port)
 {
@@ -47,9 +41,7 @@ void Nodo_naranja::net_setup(struct sockaddr_in* me, char* my_port)
     me->sin_port = htons(atoi(my_port));//Mi puerto donde estoy escuchando
     me->sin_family = AF_INET;
 
-
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-
     if(socket_fd == -1)
     {
         std::cerr << "Sender: Error: Could not create socket correctly, aborting probram." << std::endl;
@@ -87,7 +79,7 @@ void Nodo_naranja::read_graph_from_csv()
     while( !(this->file.eof() ))
     {
         int num_elementos = 0;
-        NODO temporal_node;
+        NODO_V temporal_node;
         int vecino = 0;
 
         //leer una fila completa y dejarla en "line"
@@ -107,7 +99,7 @@ void Nodo_naranja::read_graph_from_csv()
                 else
                 {
                     vecino = std::stoi(word);
-                    this->grafo[temporal_node].push_back(vecino);
+                    this->grafo_v[temporal_node].push_back(vecino);
                     std::cout << " " << vecino ;
                 }
 
@@ -133,9 +125,9 @@ int Nodo_naranja::get_num_nodos_verdes()
 //Función de utilidad para desplegar el grafo leído del CSV
 void Nodo_naranja::show_map()
 {
-    std::map<NODO , std::list<int>>::iterator it;
+    std::map<NODO_V , std::list<int>>::iterator it;
 
-    for (it = this->grafo.begin(); it != this->grafo.end(); ++it)
+    for (it = this->grafo_v.begin(); it != this->grafo_v.end(); ++it)
     {
        std::cout << it->first.name << ": ";
 
@@ -158,23 +150,31 @@ void Nodo_naranja::show_map()
 void Nodo_naranja::start_listening()
 {
     socklen_t recv_size = sizeof(this->other);
-    NODO temp_node;
+    NODO_V temp_node;
+    ssize_t bytes_received = 0;
+    temp_node.name = -1;
+    temp_node.instantiated = false;
+    bool attending = false;
     while(true) //
     {
-        ssize_t bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+
+        if(!attending)
+        {
+             bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+             attending = true;
+        }
 
         //Si me llega un mensaje de un nodo verde y quedan nodos por instanciar
         if(bytes_received > 0 && contador_nodos_verdes > 0)
         {
-
             //Repetir hasta conseguir una respuesta positiva:
 
-            std::map<NODO , std::list<int>>::iterator it;
+            std::map<NODO_V , std::list<int>>::iterator it;
             bool inst_flag = false;
 
-            for ( it = this->grafo.begin(); it != this->grafo.end() && !inst_flag ; it++ )
+            for ( it = this->grafo_v.begin(); it != this->grafo_v.end() && !inst_flag ; it++ )
             {
-                if(it->first.instantiated == false )
+                if(it->first.instantiated == false && temp_node.name != it->first.name )
                 {
                     //Seleccionar el siguiente nodo verde que aún no ha sido instanciado en la topología
                     temp_node = it->first;
@@ -182,51 +182,48 @@ void Nodo_naranja::start_listening()
                 }
             }
 
-            //Repetir hasta que reciba respuesta de los demás nodos naranjas:
+            make_package_n(temp_node.name,REQUEST_POS,this->my_priority);
 
-            //Enviar mensaje a los vecinos naranjas (REQUEST POS 205)
-
-            srand( time(NULL)) ;
-
-            int request_number = rand() * 100; //<--RANDOM
-            short int inicio = 0;
-            char tarea_a_realizar[1];
-            tarea_a_realizar[0] = 205;
-            short int priority = 0;
-
-            data.seq_num = request_number;
-            my_strncpy(package, data.str, REQUEST_NUM);
-            my_strncpy(package+4, (char*)&inicio, BEGIN_CONFIRMATION_ANSWER);
-            my_strncpy(package+6, tarea_a_realizar ,TASK_TO_REALIZE);
-            my_strncpy(package+8, (char*)&priority, PRIORITY_SIZE);
-
+            int confirmations = 0;
             int positive_confirmations = 0;
             //repetir n veces
-            for(int destiny_node = 0; destiny_node < 3; ++destiny_node)
+            while(confirmations < ORANGE_NODES)
             {
-                //Envío request 205 a los demás nodos naranja
-                ssize_t bytes_send = sendto(this->socket_fd, package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&this->other, recv_size);
-                usleep(100000);
 
-                //Espero la confirmación para el nodo naranja correspondiente
-                ssize_t bytes_received = recvfrom(socket_fd, package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
-                if(bytes_received > 0)
+                std::map<int , sockaddr_in>::iterator it_n;
+                for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
                 {
-                    char confirmation[2];
-                    char request_pos_ack[1];
-
-                    strncpy( confirmation, package+4, BEGIN_CONFIRMATION_ANSWER );
-                    strncpy( request_pos_ack, package+6, TASK_TO_REALIZE);
-
-                    if( atoi(confirmation) == 1 && atoi(request_pos_ack) == 206 )
+                    //Envío request 205 a los demás nodos naranja
+                    ssize_t bytes_send = sendto(this->socket_fd, package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&it_n->second, recv_size);
+                    usleep(100000);
+                    //Espero la confirmación para el nodo naranja correspondiente
+                    ssize_t bytes_received = recvfrom(socket_fd, package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+                    if(bytes_received > 0)
                     {
-                        positive_confirmations++;
+                        char confirmation[2];
+                        char request_pos_ack[1];
+
+                        my_strncpy( confirmation, package+4, BEGIN_CONFIRMATION_ANSWER );
+                        my_strncpy( request_pos_ack, package+6, TASK_TO_REALIZE);
+
+                        if(/* DISABLES CODE */ (false))//Recordar añadir: && it_n->second.sin_addr == this->other.sin_addr
+                        {
+                            confirmations++;
+                            if( atoi(confirmation) == 1 && atoi(request_pos_ack) == 206 )
+                            {
+                                ++positive_confirmations;
+                            }
+                        }
                     }
                 }
+
+                usleep(500000);
             }
 
-            if(positive_confirmations == 3)
+            if(confirmations == positive_confirmations)
             {
+                 attending = false;
+
                 //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
             }
@@ -234,6 +231,33 @@ void Nodo_naranja::start_listening()
 
         usleep(500000);
     }
+}
+
+void Nodo_naranja::send_confirmation_n()
+{
+    socklen_t recv_size = sizeof(this->other);
+    std::map<int , sockaddr_in>::iterator it_n;
+    for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
+    {
+        make_package_n(it_n->first,CONFIRM_POS,this->my_priority);
+        ssize_t bytes_send = sendto(this->socket_fd, package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&it_n->second, recv_size);
+    }
+}
+
+void Nodo_naranja::make_package_n(short int inicio, int task, short int priority )
+{
+    srand( time(nullptr)) ;
+    int request_number = rand() % INT_MAX-1; //<--RANDOM
+
+
+    char tarea_a_realizar[1];
+    tarea_a_realizar[0] = task;
+
+    data.seq_num = request_number;
+    my_strncpy(package, data.str, REQUEST_NUM);
+    my_strncpy(package+4, (char*)&inicio, BEGIN_CONFIRMATION_ANSWER);
+    my_strncpy(package+6, tarea_a_realizar ,TASK_TO_REALIZE);
+    my_strncpy(package+8, (char*)&priority, PRIORITY_SIZE);
 }
 
 

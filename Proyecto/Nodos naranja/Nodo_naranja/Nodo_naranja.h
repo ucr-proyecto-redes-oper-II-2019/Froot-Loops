@@ -16,14 +16,21 @@
 #include <list>
 #include <sstream>
 #include <cstdlib>
+#include<bits/stdc++.h>
+
+union Data
+{
+    int seq_num;
+    char str[4];
+}data;
 
 
-struct NODO
+struct NODO_V
 {
     int name;
     bool instantiated;
 
-}nodo_t;
+}nodo_v_t;
 
 
 
@@ -39,6 +46,9 @@ struct NODO
 #define BEGIN_CONFIRMATION_ANSWER 2
 #define TASK_TO_REALIZE 1
 #define PRIORITY_SIZE 2
+#define ORANGE_NODES 3
+#define REQUEST_POS 205
+#define CONFIRM_POS 210
 
 /// Avoids instances of a class to be copied
 #define DISABLE_COPY_CLASS(ClassName) \
@@ -60,12 +70,15 @@ class Nodo_naranja
 
         int socket_fd;
         int contador_nodos_verdes;
+        short int my_priority;
 
         char* package;
         char* filename;
 
+
         std::ifstream file;
-        std::map < NODO, std::list <int> > grafo;
+        std::map < NODO_V, std::list <int> > grafo_v;
+        std::map <int, sockaddr_in> grafo_n;
 
     public:
         Nodo_naranja(char* my_port,char* filename);
@@ -81,6 +94,8 @@ class Nodo_naranja
         void read_graph_from_csv();
         void show_map();
 
+        void send_confirmation_n();
+        void make_package_n(short int inicio, int task, short int priority );
 };
 
 #endif // NODO_NARANJA_H

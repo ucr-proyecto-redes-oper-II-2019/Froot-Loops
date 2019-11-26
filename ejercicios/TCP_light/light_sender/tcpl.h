@@ -14,17 +14,22 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <unordered_map>
-
+#include <string.h>
 
 #define SEND 0
 #define PACK_THROUGHPUT 1024
 #define PACK_SIZE 1029  //5 bytes de encabezado 1KB(1024bytes) de datos
+#define TCPL_PACK_SIZE 1052 //tamaño del paquete interno de tcpl
+#define TCPL_PORT 7200
 
 union Data;
 
 struct Element
 {
-	char* element_package;
+  int element_ip_size;
+  char* element_port;
+  char* element_ip;
+  char* element_package;
 	int ttl;
 };
 
@@ -41,42 +46,48 @@ class tcpl
 {
 
 DISABLE_COPY_CLASS(tcpl)
+
 private:
+
     bool file_read_flag;
     bool setup_failure;
 
-    char* my_port;
+    int my_port;
     char* destiny_ip;
     char* destiny_port;
-    char* file_name;
     char* package;//buffer usado para enviar y recibir paquetes
+    char* tcpl_package;
     char* shared_buffer;
 
     char buffer_flag;
-
-    std::ifstream file;
 
     struct sockaddr_in me;
     struct sockaddr_in other;
 
     int socket_fd;
+  	int inner_socket_fd;
     int SN;
     int RN;
 
-	element_map bag;
+		element_map bag;
+	
+//-----------//Funciones de utilidad privadas\\---------
+		char* my_strncpy(char *dest, const char *src, int n);
+    void make_pakage(char *data_block);
+    void net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, int my_port);
+  	void insertar();
+  	void leer();
+    
+//-----------------------------------------------------
+
 public:
 
-    tcpl(char *my_port, char *ip, char *other_port, char *file_name);
+    tcpl(int port);
     ~tcpl();
 
     //Funciones de ligth_sender
-    void send();
+    void send(char* sending_package, char* IP, char* send_to_port);
     void receive();
-
-    //Funciones de utilidad
-    char* my_strncpy(char *dest, const char *src, int n);
-    char* make_pakage(char *data_block);
-    void net_setup(struct sockaddr_in* source, struct sockaddr_in* dest, char* my_port, char* destiny_ip, char* destiny_port);
     void start_sending();
 };
 

@@ -71,15 +71,12 @@ char *Nodo_naranja::my_strncpy(char *dest, const char *src, int n)
 //Función que se encarga de leer del archivo CSV el grafo con el formato específicado en el proyecto
 void Nodo_naranja::read_graph_from_csv()
 {
-    std::list<int> prueba;
-    std::string line, word, temp, end_line;
-    end_line = '\n';
+    std::string line, word, temp;
 
     //Lee el archivo CSV con formato de fila: NODO,VECINO1,VECINO2, ... , VECINO N
     while( !(this->file.eof() ))
     {
         int num_elementos = 0;
-        NODO_V temporal_node;
         int vecino = 0;
 
         //leer una fila completa y dejarla en "line"
@@ -89,20 +86,25 @@ void Nodo_naranja::read_graph_from_csv()
         if( !line.empty() )
         {
             std::cout << "Linea " << contador_nodos_verdes << ": ";
+            std::list<int> temp_list;
+            NODO_V temporal_node;
+
             while(getline(stream, word, ','))
             {
                 if(num_elementos == 0)
                 {
                     temporal_node.name = std::stoi(word);
                     std::cout << "Key: (" << temporal_node.name << "), Vecinos:" ;
+
                 }
                 else
                 {
-                    vecino = std::stoi(word);
-                    this->grafo_v[temporal_node].push_back(vecino);
-                    std::cout << " " << vecino ;
+                    vecino = std::stoi(word);                     
+                    std::cout << " " << vecino;
+                    temp_list.push_back(vecino);
                 }
 
+                this->grafo_v.insert( std::pair< NODO_V, std::list<int> >(temporal_node, temp_list));
                 num_elementos++;
             }
 
@@ -125,7 +127,7 @@ int Nodo_naranja::get_num_nodos_verdes()
 //Función de utilidad para desplegar el grafo leído del CSV
 void Nodo_naranja::show_map()
 {
-    std::map<NODO_V , std::list<int>>::iterator it;
+    std::map< NODO_V , std::list<int>>::iterator it;
 
     for (it = this->grafo_v.begin(); it != this->grafo_v.end(); ++it)
     {

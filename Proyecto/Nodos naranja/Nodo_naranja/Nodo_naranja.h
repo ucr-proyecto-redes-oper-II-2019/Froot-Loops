@@ -25,12 +25,12 @@ union Data
 }data;
 
 
-struct NODO_V
+/*typedef struct
 {
     int name;
     bool instantiated;
 
-}nodo_v_t;
+}NODO_V;*/
 
 
 
@@ -57,9 +57,12 @@ struct NODO_V
     ClassName& operator=(const ClassName& other) = delete; \
     ClassName& operator=(ClassName&& temp) = delete;
 
-
+class NODO_V;
 class Nodo_naranja
 {
+
+
+
     DISABLE_COPY_CLASS(Nodo_naranja)
     private:
 
@@ -96,6 +99,25 @@ class Nodo_naranja
 
         void send_confirmation_n();
         void make_package_n(short int inicio, int task, short int priority );
+
+
+
 };
+
+class NODO_V
+{
+    public:
+        int name;
+        bool instantiated;
+
+    private:
+
+
+};
+
+bool operator<(const NODO_V& n1, const NODO_V& n2)
+{
+    return n1.name < n2.name;
+}
 
 #endif // NODO_NARANJA_H

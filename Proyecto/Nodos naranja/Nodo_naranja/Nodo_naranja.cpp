@@ -188,8 +188,9 @@ void Nodo_naranja::start_listening()
 
             int confirmations = 0;
             int positive_confirmations = 0;
+            bool negative_confirmations = false;
             //repetir n veces
-            while(confirmations < ORANGE_NODES)
+            while(confirmations < ORANGE_NODES && !negative_confirmations)
             {
 
                 std::map<int , sockaddr_in>::iterator it_n;
@@ -208,7 +209,7 @@ void Nodo_naranja::start_listening()
                         my_strncpy( confirmation, package+4, BEGIN_CONFIRMATION_ANSWER );
                         my_strncpy( request_pos_ack, package+6, TASK_TO_REALIZE);
 
-                        if(/* DISABLES CODE */ (false))//Recordar añadir: && it_n->second.sin_addr == this->other.sin_addr
+                        if(it_n->second.sin_addr.s_addr == this->other.sin_addr.s_addr)//Recordar añadir: && it_n->second.sin_addr == this->other.sin_addr
                         {
                             confirmations++;
                             if( atoi(confirmation) == 1 && atoi(request_pos_ack) == 206 )
@@ -224,10 +225,12 @@ void Nodo_naranja::start_listening()
 
             if(confirmations == positive_confirmations)
             {
-                 attending = false;
+                 //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
+                send_confirmation_n();  //Recordar que hay que usar el Send de TCPL dentro de la función
 
-                //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
+
+                 attending = false;
             }
         }
 
@@ -246,7 +249,7 @@ void Nodo_naranja::send_confirmation_n()
     }
 }
 
-void Nodo_naranja::make_package_n(short int inicio, int task, short int priority )
+void Nodo_naranja::make_package_n(short int inicio, int task, short int priority)
 {
     srand( time(nullptr)) ;
     int request_number = rand() % INT_MAX-1; //<--RANDOM
@@ -260,6 +263,11 @@ void Nodo_naranja::make_package_n(short int inicio, int task, short int priority
     my_strncpy(package+4, (char*)&inicio, BEGIN_CONFIRMATION_ANSWER);
     my_strncpy(package+6, tarea_a_realizar ,TASK_TO_REALIZE);
     my_strncpy(package+8, (char*)&priority, PRIORITY_SIZE);
+}
+
+void Nodo_naranja::make_package_v(short int inicio, int task, short int priority )
+{
+
 }
 
 

@@ -102,6 +102,7 @@ class Nodo_naranja
 
 
 
+        void make_package_v(short inicio, int task, short priority);
 };
 
 class NODO_V

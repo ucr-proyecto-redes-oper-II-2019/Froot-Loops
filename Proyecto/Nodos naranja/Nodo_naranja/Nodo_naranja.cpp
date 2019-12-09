@@ -228,7 +228,7 @@ void Nodo_naranja::show_orange_graph()
     {
         struct sockaddr_in temp;
         temp = it->second;
-        std::cout << "Vecino #" << it->first << " tiene IP: " << temp.sin_addr.s_addr << " y Puerto: " << temp.sin_port << std::endl;
+        std::cout << "Vecino #" << it->first << " tiene IP: " << inet_ntoa(temp.sin_addr) << " y Puerto:" << ntohs(temp.sin_port) << std::endl;
     }
 
     std::cout << "Contador nodos naranjas: " << this->contador_nodos_naranjas <<std::endl;
@@ -315,6 +315,10 @@ void Nodo_naranja::start_listening()
                  //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
                 send_confirmation_n();  //Recordar que hay que usar el Send de TCPL dentro de la función
 
+                make_package_v(CONNECT_ACK,temp_node);
+
+                //Send tcpl
+
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
 
                  attending = false;
@@ -338,7 +342,7 @@ void Nodo_naranja::send_confirmation_n()
 
 void Nodo_naranja::make_package_n(short int inicio, int task, short int priority)
 {
-    srand( time(nullptr)) ;
+    srand( time(nullptr));
     int request_number = rand() % INT_MAX-1; //<--RANDOM
 
 
@@ -352,9 +356,44 @@ void Nodo_naranja::make_package_n(short int inicio, int task, short int priority
     my_strncpy(package+8, (char*)&priority, PRIORITY_SIZE);
 }
 
-void Nodo_naranja::make_package_v(short int inicio, int task, short int priority )
+void Nodo_naranja::make_package_v(int task, NODO_V nodo)
 {
+    srand( time(nullptr));
+    int request_number = rand() % INT_MAX-1; //<--RANDOM
+
+    char tarea_a_realizar[1];
+    tarea_a_realizar[0] = task;
+    data.seq_num = request_number;
+    my_strncpy(package, data.str, REQUEST_NUM);
+
+    my_strncpy(package+4,(char*)&nodo.name, 2);
+    my_strncpy(package+6,tarea_a_realizar,TASK_TO_REALIZE);
+    std::list<int>::iterator list_it;
+
+    int offset = ORANGE_HEADER_SIZE;
+    for(list_it = this->grafo_v[nodo].begin(); list_it != this->grafo_v[nodo].end() ;++list_it)
+    {
+        my_strncpy(package+offset,(char*)&(*list_it),4);
+        offset += 4;
+    }
 
 }
+//IMPORTANTE NO BORRAR!
+/*
+⣿⣿⣿⣿⣿⣿⣿⡿⡛⠟⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⠿⠨⡀⠄⠄⡘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⠿⢁⠼⠊⣱⡃⠄⠈⠹⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⡿⠛⡧⠁⡴⣦⣔⣶⣄⢠⠄⠄⠹⣿⣿⣿⣿⣿⣿⣿⣤⠭⠏⠙⢿⣿⣿
+⣿⡧⠠⠠⢠⣾⣾⣟⠝⠉⠉⠻⡒⡂⠄⠙⠻⣿⣿⣿⣿⣿⡪⠘⠄⠉⡄⢹⣿
+⣿⠃⠁⢐⣷⠉⠿⠐⠑⠠⠠⠄⣈⣿⣄⣱⣠⢻⣿⣿⣿⣿⣯⠷⠈⠉⢀⣾⣿
+⣿⣴⠤⣬⣭⣴⠂⠇⡔⠚⠍⠄⠄⠁⠘⢿⣷⢈⣿⣿⣿⣿⡧⠂⣠⠄⠸⡜⡿
+⣿⣇⠄⡙⣿⣷⣭⣷⠃⣠⠄⠄⡄⠄⠄⠄⢻⣿⣿⣿⣿⣿⣧⣁⣿⡄⠼⡿⣦
+⣿⣷⣥⣴⣿⣿⣿⣿⠷⠲⠄⢠⠄⡆⠄⠄⠄⡨⢿⣿⣿⣿⣿⣿⣎⠐⠄⠈⣙
+⣿⣿⣿⣿⣿⣿⢟⠕⠁⠈⢠⢃⢸⣿⣿⣶⡘⠑⠄⠸⣿⣿⣿⣿⣿⣦⡀⡉⢿
+⣿⣿⣿⣿⡿⠋⠄⠄⢀⠄⠐⢩⣿⣿⣿⣿⣦⡀⠄⠄⠉⠿⣿⣿⣿⣿⣿⣷⣨
+⣿⣿⣿⡟⠄⠄⠄⠄⠄⠋⢀⣼⣿⣿⣿⣿⣿⣿⣿⣶⣦⣀⢟⣻⣿⣿⣿⣿⣿
+⣿⣿⣿⡆⠆⠄⠠⡀⡀⠄⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⡿⡅⠄⠄⢀⡰⠂⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+*/
 
 

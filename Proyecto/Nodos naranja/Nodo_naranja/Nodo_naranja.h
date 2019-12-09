@@ -18,22 +18,7 @@
 #include <cstdlib>
 #include<bits/stdc++.h>
 
-union Data
-{
-    int seq_num;
-    char str[4];
-}data;
-
-
-/*typedef struct
-{
-    int name;
-    bool instantiated;
-
-}NODO_V;*/
-
-
-
+//Macros
 #define SEND 0
 #define PACK_THROUGHPUT 512
 #define PACK_SIZE 516
@@ -60,9 +45,6 @@ union Data
 class NODO_V;
 class Nodo_naranja
 {
-
-
-
     DISABLE_COPY_CLASS(Nodo_naranja)
     private:
 
@@ -73,36 +55,45 @@ class Nodo_naranja
 
         int socket_fd;
         int contador_nodos_verdes;
+        int contador_nodos_naranjas;
         short int my_priority;
 
         char* package;
         char* filename;
-
+        char* orange_filename;
+        char* my_ip;
+        char* my_port;
 
         std::ifstream file;
+        std::ifstream orange_file;
+
         std::map < NODO_V, std::list <int> > grafo_v;
         std::map <int, sockaddr_in> grafo_n;
 
     public:
-        Nodo_naranja(char* my_port,char* filename);
+        Nodo_naranja(char* my_ip, char* my_port, char* filename, char* orange_filename);
         ~Nodo_naranja();
 
-        //Finciones del nodo naranja
+        //Funciones del nodo naranja
         void start_listening();
         void net_setup(struct sockaddr_in* me, char* my_port);
+
+        void send_confirmation_n();
+        void make_package_n(short int inicio, int task, short int priority );
+        void make_package_v(short inicio, int task, short priority);
 
         //Funciones de utilidad
         char* my_strncpy(char *dest, const char *src, int n);
         int get_num_nodos_verdes();
+        int get_num_nodos_naranjas();
+
+        //Manejo de nodos naranjas y verdes
         void read_graph_from_csv();
-        void show_map();
-
-        void send_confirmation_n();
-        void make_package_n(short int inicio, int task, short int priority );
-
+        void read_orange_neighbours_from_file();
+        void show_green_graph();
+        void show_orange_graph();
 
 
-        void make_package_v(short inicio, int task, short priority);
 };
 
 class NODO_V
@@ -115,10 +106,5 @@ class NODO_V
 
 
 };
-
-bool operator<(const NODO_V& n1, const NODO_V& n2)
-{
-    return n1.name < n2.name;
-}
 
 #endif // NODO_NARANJA_H

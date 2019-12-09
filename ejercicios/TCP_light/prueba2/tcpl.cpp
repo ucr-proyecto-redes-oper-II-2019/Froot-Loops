@@ -293,6 +293,7 @@ void tcpl::eliminar()
 		{
 			std::cout << "Se entra a eliminar paquetes por ack"<<std::endl;
 			std::cout << ack_bag.size() <<std::endl;
+			/*
 			std::list<int>::iterator it1;
 			for (it1=ack_bag.begin(); it1!=ack_bag.end(); ++it1)
 			{
@@ -303,7 +304,18 @@ void tcpl::eliminar()
 				bag.erase(*it1);
 				ack_bag.erase(it1);
 			}
+			* */
+			for (int i = ack_bag.size(); i > 0; i--)
+			{
+				delete[] bag[ack_bag[i]].element_ip;
+				delete[] bag[ack_bag[i]].element_package;
+				delete[] bag[ack_bag[i]].element_port;
+				bag.erase(ack_bag[i]);
+				ack_bag.pop_back();
+				std::cout << ack_bag.size() <<std::endl;
+			}
 		}
+		sleep(1);
 	}
 }
 

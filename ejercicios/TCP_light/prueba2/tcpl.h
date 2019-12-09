@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <string.h>
 #include <list>
+#include <vector>
 
 #define SEND 0
 #define ACK 1
@@ -76,7 +77,7 @@ private:
     int RN;
 
 		element_map bag;
-		std::list<int> ack_bag;
+		std::vector<int> ack_bag;
 		element_map received_bag;
 	
 //-----------//Funciones de utilidad privadas\\---------

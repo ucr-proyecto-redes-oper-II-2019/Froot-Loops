@@ -189,7 +189,7 @@ void tcpl::insertar()
     {
 			std::cout << "Sí recibí algo" << std::endl;
       Element my_element;
-      my_element.ttl = 5;
+      my_element.ttl = 500;
       
       /*se tiene que desempaquetar el paquete interno de tcpl que consta de
        * 4B de tamaño de ip
@@ -218,7 +218,7 @@ void tcpl::insertar()
       char tmp[1024];
       my_strncpy(tmp, my_element.element_package+5, 1024);
       tmp[1023] = 0;
-      std::cout << tcpl_package+28 << std::endl;
+      std::cout << tcpl_package+28 <<floral fury std::endl;
       
 			//se recupera el número de paquete para usarlo como llave en la bolsa
 			my_strncpy(data.str, my_element.element_package, 4);
@@ -228,7 +228,7 @@ void tcpl::insertar()
 			bag[request_number] = my_element;
     }
     bytes_read = 0; //reinicia los bytes leídos porque de otra manera el hilo sigue creyendo que recibió algo
-    sleep(1);
+    //sleep(1);
   }
   
 } // You rock homie <3 //
@@ -264,7 +264,7 @@ void tcpl::leer()
 				}
 			}
 		}
-		sleep(1);
+		//sleep(1);
 	}
 }
 
@@ -315,7 +315,7 @@ void tcpl::eliminar()
 				std::cout << ack_bag.size() <<std::endl;
 			}
 		}
-		sleep(1);
+		//sleep(1);
 	}
 }
 

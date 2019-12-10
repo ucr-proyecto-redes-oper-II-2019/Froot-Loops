@@ -1,5 +1,5 @@
-#ifndef NODO_NARANJA_H
-#define NODO_NARANJA_H
+#ifndef NODO_VERDE_H
+#define NODO_VERDE_H
 
 #include <cstring>
 #include <sys/stat.h>
@@ -18,6 +18,11 @@
 #include <cstdlib>
 #include <bits/stdc++.h>
 
+#define GREEN_MESSAGE_SIZE 1015
+#define REQUEST_POS 205
+#define CONFIRM_POS 210
+#define CONNECT 200
+#define CONNECT_ACK 201
 //Macros
 #define SEND 0
 #define PACK_THROUGHPUT 512
@@ -45,11 +50,19 @@
     ClassName& operator=(const ClassName& other) = delete; \
     ClassName& operator=(ClassName&& temp) = delete;
 
-class NODO_V;
-class Nodo_naranja
+using namespace std;
+
+class Nodo_Verde
 {
-    DISABLE_COPY_CLASS(Nodo_naranja)
+    DISABLE_COPY_CLASS(Nodo_Verde)
+
     private:
+        char* orange_ip;
+        char* orange_port;
+        char* my_port;
+        char* package;
+
+        list <int> neighbours;
 
         struct sockaddr_in me;
         struct sockaddr_in other;
@@ -57,57 +70,20 @@ class Nodo_naranja
         bool setup_failure;
 
         int socket_fd;
-        int contador_nodos_verdes;
-        int contador_nodos_naranjas;
-        short int my_priority;
-
-        char* package;
-        char* filename;
-        char* orange_filename;
-        char* my_ip;
-        char* my_port;
-
-        std::ifstream file;
-        std::ifstream orange_file;
-
-        std::map < NODO_V, std::list <int> > grafo_v;
-        std::map <int, sockaddr_in> grafo_n;
-
     public:
-        Nodo_naranja(char* my_ip, char* my_port, char* filename, char* orange_filename);
-        ~Nodo_naranja();
+        //-----------FUNCIONES DE NODO VERDE----------------------//
+        Nodo_Verde(char* my_port, char* orange_ip, char* orange_port);
+        ~Nodo_Verde();
 
-        //Funciones del nodo naranja
-        void start_listening();
+        //-----------FUNCIONES DE UTILIDAD-----------------------//
         void net_setup(struct sockaddr_in* me, char* my_port);
-
-        void send_confirmation_n();
-        void make_package_n(short int inicio, int task, short int priority );
-        void make_package_v(int task, NODO_V nodo);
-
-        //Funciones de utilidad
+        void send_instantiation_request();
+        void make_package_n(short int inicio, int task, short int priority);
         char* my_strncpy(char *dest, const char *src, int n);
-        int get_num_nodos_verdes();
-        int get_num_nodos_naranjas();
 
-        //Manejo de nodos naranjas y verdes
-        void read_graph_from_csv();
-        void read_orange_neighbours_from_file();
-        void show_green_graph();
-        void show_orange_graph();
+
 
 
 };
 
-class NODO_V
-{
-    public:
-        int name;
-        bool instantiated;
-
-    private:
-
-
-};
-
-#endif // NODO_NARANJA_H
+#endif // NODO_VERDE_H

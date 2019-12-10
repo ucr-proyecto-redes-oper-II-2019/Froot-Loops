@@ -49,6 +49,8 @@ Nodo_naranja::Nodo_naranja(char* my_ip, char* my_port, char* filename, char* ora
 
     this->package = new char[ORANGE_MESSAGE_SIZE];
     //AGREGAR NETSETUP
+    net_setup(&this->me, this->my_port);
+    start_listening();
 
 }
 
@@ -303,6 +305,10 @@ void Nodo_naranja::start_listening()
                             {
                                 ++positive_confirmations;
                             }
+                            else if( atoi(confirmation) == 0 && atoi(request_pos_ack) == 206 )
+                            {
+                                negative_confirmations = true;
+                            }
                         }
                     }
                 }
@@ -312,13 +318,16 @@ void Nodo_naranja::start_listening()
 
             if(confirmations == positive_confirmations)
             {
-                 //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
-                send_confirmation_n();  //Recordar que hay que usar el Send de TCPL dentro de la función
+                std::list <int> temp = grafo_v[temp_node];
+                this->grafo_v.erase(temp_node);
+                temp_node.instantiated = true;
+                this->grafo_v.insert( std::pair< NODO_V, std::list<int> >(temp_node, temp));
 
+                //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
+                send_confirmation_n();  //Recordar que hay que usar el Send de TCPL dentro de la función
                 make_package_v(CONNECT_ACK,temp_node);
 
                 //Send tcpl
-
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
 
                  attending = false;
@@ -378,22 +387,3 @@ void Nodo_naranja::make_package_v(int task, NODO_V nodo)
     }
 
 }
-//IMPORTANTE NO BORRAR!
-/*
-⣿⣿⣿⣿⣿⣿⣿⡿⡛⠟⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⠿⠨⡀⠄⠄⡘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⠿⢁⠼⠊⣱⡃⠄⠈⠹⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⡿⠛⡧⠁⡴⣦⣔⣶⣄⢠⠄⠄⠹⣿⣿⣿⣿⣿⣿⣿⣤⠭⠏⠙⢿⣿⣿
-⣿⡧⠠⠠⢠⣾⣾⣟⠝⠉⠉⠻⡒⡂⠄⠙⠻⣿⣿⣿⣿⣿⡪⠘⠄⠉⡄⢹⣿
-⣿⠃⠁⢐⣷⠉⠿⠐⠑⠠⠠⠄⣈⣿⣄⣱⣠⢻⣿⣿⣿⣿⣯⠷⠈⠉⢀⣾⣿
-⣿⣴⠤⣬⣭⣴⠂⠇⡔⠚⠍⠄⠄⠁⠘⢿⣷⢈⣿⣿⣿⣿⡧⠂⣠⠄⠸⡜⡿
-⣿⣇⠄⡙⣿⣷⣭⣷⠃⣠⠄⠄⡄⠄⠄⠄⢻⣿⣿⣿⣿⣿⣧⣁⣿⡄⠼⡿⣦
-⣿⣷⣥⣴⣿⣿⣿⣿⠷⠲⠄⢠⠄⡆⠄⠄⠄⡨⢿⣿⣿⣿⣿⣿⣎⠐⠄⠈⣙
-⣿⣿⣿⣿⣿⣿⢟⠕⠁⠈⢠⢃⢸⣿⣿⣶⡘⠑⠄⠸⣿⣿⣿⣿⣿⣦⡀⡉⢿
-⣿⣿⣿⣿⡿⠋⠄⠄⢀⠄⠐⢩⣿⣿⣿⣿⣦⡀⠄⠄⠉⠿⣿⣿⣿⣿⣿⣷⣨
-⣿⣿⣿⡟⠄⠄⠄⠄⠄⠋⢀⣼⣿⣿⣿⣿⣿⣿⣿⣶⣦⣀⢟⣻⣿⣿⣿⣿⣿
-⣿⣿⣿⡆⠆⠄⠠⡀⡀⠄⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⡿⡅⠄⠄⢀⡰⠂⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-*/
-
-

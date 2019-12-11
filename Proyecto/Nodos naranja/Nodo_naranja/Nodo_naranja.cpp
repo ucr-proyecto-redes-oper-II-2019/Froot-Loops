@@ -198,6 +198,20 @@ int Nodo_naranja::get_num_nodos_naranjas()
     return this->contador_nodos_naranjas;
 }
 
+ssize_t Nodo_naranja::call_send_tcpl(struct sockaddr_in* destiny)
+{
+    socklen_t recv_size = sizeof(this->other);
+    ssize_t bytes_sent = sendto(this->socket_fd, this->package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&destiny, recv_size);
+    return bytes_sent;
+}
+
+ssize_t Nodo_naranja::call_recv_tcpl()
+{
+    socklen_t recv_size = sizeof(this->other);
+    ssize_t bytes_recieved = recvfrom(this->socket_fd, this->package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+    return bytes_recieved;
+}
+
 //Función de utilidad para desplegar el grafo leído del CSV
 void Nodo_naranja::show_green_graph()
 {
@@ -286,10 +300,10 @@ void Nodo_naranja::start_listening()
                 for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
                 {
                     //Envío request 205 a los demás nodos naranja
-                    ssize_t bytes_send = sendto(this->socket_fd, package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&it_n->second, recv_size);
+                    ssize_t bytes_send = call_send_tcpl(&it_n->second);
                     usleep(100000);
                     //Espero la confirmación para el nodo naranja correspondiente
-                    ssize_t bytes_received = recvfrom(socket_fd, package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+                    ssize_t bytes_received = call_recv_tcpl();
                     if(bytes_received > 0)
                     {
                         char confirmation[2];
@@ -345,7 +359,7 @@ void Nodo_naranja::send_confirmation_n()
     for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
     {
         make_package_n(it_n->first,CONFIRM_POS,this->my_priority);
-        ssize_t bytes_send = sendto(this->socket_fd, package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&it_n->second, recv_size);
+        ssize_t bytes_send = call_send_tcpl(&it_n->second);
     }
 }
 

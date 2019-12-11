@@ -89,6 +89,8 @@ class Nodo_naranja
         char* my_strncpy(char *dest, const char *src, int n);
         int get_num_nodos_verdes();
         int get_num_nodos_naranjas();
+        ssize_t call_send_tcpl(struct sockaddr_in* destiny);
+        ssize_t call_recv_tcpl();
 
         //Manejo de nodos naranjas y verdes
         void read_graph_from_csv();

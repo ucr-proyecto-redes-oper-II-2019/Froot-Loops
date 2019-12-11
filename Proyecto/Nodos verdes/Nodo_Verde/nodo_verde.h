@@ -79,7 +79,6 @@ class Nodo_Verde
         void make_package_n(short int inicio, int task, short int priority);
         ssize_t call_send_tcpl();
         ssize_t call_recv_tcpl();
-
         char* my_strncpy(char *dest, const char *src, int n);
 
 };

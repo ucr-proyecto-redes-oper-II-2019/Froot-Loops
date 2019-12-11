@@ -8,6 +8,7 @@ union Data
 
 Nodo_Verde::Nodo_Verde(char *my_port, char *orange_ip, char *orange_port)
 {
+    std::cout << "Green Node!" << std::endl;
     this->my_port = my_port;
     this->orange_ip = orange_ip;
     this->orange_port = orange_port;
@@ -17,14 +18,14 @@ Nodo_Verde::Nodo_Verde(char *my_port, char *orange_ip, char *orange_port)
     this->package = new char[GREEN_MESSAGE_SIZE];
 
     if(!setup_failure)
+        std::cout << "Sending instantiation request..." << std::endl;
         send_instantiation_request();
-
-
 }
 
 Nodo_Verde::~Nodo_Verde()
 {
     delete this->package;
+    close(this->socket_fd);
     std::cout << "Señal recibida, nodo verde desconectándose." << std::endl;
 }
 
@@ -69,39 +70,39 @@ char *Nodo_Verde::my_strncpy(char *dest, const char *src, int n)
 
 void Nodo_Verde::send_instantiation_request()
 {
-    socklen_t recv_size = sizeof(this->other);
-    ssize_t bytes_received = 0;
+    ssize_t bytes_recieved = 0;
     bool end = false;
     Data data;
 
+    make_package_n( 1, CONNECT, 0 );
+    ssize_t bytes_sent = call_send_tcpl();
+
     while(!end)
     {
-        bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
-        if(bytes_received > 0)
+        bytes_recieved = call_recv_tcpl();
+        char tarea = package[6];
+        if(bytes_recieved > 0 && tarea == CONNECT_ACK)
         {
-            for(int bytes_count = 15; bytes_count < bytes_received;bytes_count += 4)
+            std::cout << "Recibí respuesta de Naranja" << std::endl;
+            for(int bytes_count = 15; bytes_count < bytes_recieved; bytes_count += 4)
             {
                 my_strncpy(data.str,package+bytes_count,4);
                 neighbours.push_back(data.seq_num);
             }
             end = true;
-
         }
-
-        //send to tcpl
+        make_package_n( 1, CONNECT, 0 );
+        ssize_t bytes_sent = call_send_tcpl();
     }
 
-    cout << "Mis Vecinos son: " << endl;
-
+    std::cout << "Mis Vecinos son: " << std::endl;
     std::list<int>::iterator list_it;
     for(list_it = neighbours.begin();list_it != neighbours.end();++list_it)
     {
-        cout << *list_it;
+        std::cout << *list_it;
     }
 
-    cout << endl;
-
-
+    std::cout << std::endl;
 
 }
 
@@ -120,19 +121,17 @@ void Nodo_Verde::make_package_n(short int inicio, int task, short int priority)
     my_strncpy(package+6, tarea_a_realizar ,TASK_TO_REALIZE);
     my_strncpy(package+8, (char*)&priority, PRIORITY_SIZE);
 }
-/*
-⣿⣿⣿⣿⣿⣿⣿⡿⡛⠟⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⠿⠨⡀⠄⠄⡘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⠿⢁⠼⠊⣱⡃⠄⠈⠹⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⡿⠛⡧⠁⡴⣦⣔⣶⣄⢠⠄⠄⠹⣿⣿⣿⣿⣿⣿⣿⣤⠭⠏⠙⢿⣿⣿
-⣿⡧⠠⠠⢠⣾⣾⣟⠝⠉⠉⠻⡒⡂⠄⠙⠻⣿⣿⣿⣿⣿⡪⠘⠄⠉⡄⢹⣿
-⣿⠃⠁⢐⣷⠉⠿⠐⠑⠠⠠⠄⣈⣿⣄⣱⣠⢻⣿⣿⣿⣿⣯⠷⠈⠉⢀⣾⣿
-⣿⣴⠤⣬⣭⣴⠂⠇⡔⠚⠍⠄⠄⠁⠘⢿⣷⢈⣿⣿⣿⣿⡧⠂⣠⠄⠸⡜⡿
-⣿⣇⠄⡙⣿⣷⣭⣷⠃⣠⠄⠄⡄⠄⠄⠄⢻⣿⣿⣿⣿⣿⣧⣁⣿⡄⠼⡿⣦
-⣿⣷⣥⣴⣿⣿⣿⣿⠷⠲⠄⢠⠄⡆⠄⠄⠄⡨⢿⣿⣿⣿⣿⣿⣎⠐⠄⠈⣙
-⣿⣿⣿⣿⣿⣿⢟⠕⠁⠈⢠⢃⢸⣿⣿⣶⡘⠑⠄⠸⣿⣿⣿⣿⣿⣦⡀⡉⢿
-⣿⣿⣿⣿⡿⠋⠄⠄⢀⠄⠐⢩⣿⣿⣿⣿⣦⡀⠄⠄⠉⠿⣿⣿⣿⣿⣿⣷⣨
-⣿⣿⣿⡟⠄⠄⠄⠄⠄⠋⢀⣼⣿⣿⣿⣿⣿⣿⣿⣶⣦⣀⢟⣻⣿⣿⣿⣿⣿
-⣿⣿⣿⡆⠆⠄⠠⡀⡀⠄⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⡿⡅⠄⠄⢀⡰⠂⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-*/
+
+ssize_t Nodo_Verde::call_send_tcpl()
+{
+    socklen_t recv_size = sizeof(this->other);
+    ssize_t bytes_sent = sendto(this->socket_fd, this->package, GREEN_MESSAGE_SIZE, 0, (struct sockaddr*)&this->other, recv_size);
+    return bytes_sent;
+}
+
+ssize_t Nodo_Verde::call_recv_tcpl()
+{
+    socklen_t recv_size = sizeof(this->other);
+    ssize_t bytes_recieved = recvfrom(this->socket_fd, this->package, GREEN_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+    return bytes_recieved;
+}

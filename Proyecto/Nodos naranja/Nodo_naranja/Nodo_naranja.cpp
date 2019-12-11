@@ -48,7 +48,7 @@ Nodo_naranja::Nodo_naranja(char* my_ip, char* my_port, char* filename, char* ora
     }
 
     this->package = new char[ORANGE_MESSAGE_SIZE];
-    //AGREGAR NETSETUP
+
     net_setup(&this->me, this->my_port);
     start_listening();
 

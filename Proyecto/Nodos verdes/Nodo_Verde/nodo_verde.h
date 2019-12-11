@@ -1,4 +1,4 @@
-#ifndef NODO_VERDE_H
+﻿#ifndef NODO_VERDE_H
 #define NODO_VERDE_H
 
 #include <cstring>
@@ -13,7 +13,6 @@
 #include <map>
 #include <list>
 #include <fstream>
-#include <list>
 #include <sstream>
 #include <cstdlib>
 #include <bits/stdc++.h>
@@ -23,6 +22,7 @@
 #define CONFIRM_POS 210
 #define CONNECT 200
 #define CONNECT_ACK 201
+
 //Macros
 #define SEND 0
 #define PACK_THROUGHPUT 512
@@ -50,8 +50,6 @@
     ClassName& operator=(const ClassName& other) = delete; \
     ClassName& operator=(ClassName&& temp) = delete;
 
-using namespace std;
-
 class Nodo_Verde
 {
     DISABLE_COPY_CLASS(Nodo_Verde)
@@ -62,7 +60,7 @@ class Nodo_Verde
         char* my_port;
         char* package;
 
-        list <int> neighbours;
+        std::list<int> neighbours;
 
         struct sockaddr_in me;
         struct sockaddr_in other;
@@ -79,10 +77,10 @@ class Nodo_Verde
         void net_setup(struct sockaddr_in* me, char* my_port);
         void send_instantiation_request();
         void make_package_n(short int inicio, int task, short int priority);
+        ssize_t call_send_tcpl();
+        ssize_t call_recv_tcpl();
+
         char* my_strncpy(char *dest, const char *src, int n);
-
-
-
 
 };
 

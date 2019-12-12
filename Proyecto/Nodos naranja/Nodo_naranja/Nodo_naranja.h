@@ -20,8 +20,6 @@
 
 //Macros
 #define SEND 0
-#define PACK_THROUGHPUT 512
-#define PACK_SIZE 516
 #define FILE_OPEN_ERROR -1
 #define SOCK_FAILED_ERROR -2
 #define BIND_FAILURE -3
@@ -89,8 +87,8 @@ class Nodo_naranja
         char* my_strncpy(char *dest, const char *src, int n);
         int get_num_nodos_verdes();
         int get_num_nodos_naranjas();
-        ssize_t call_send_tcpl(struct sockaddr_in* destiny);
-        ssize_t call_recv_tcpl();
+        ssize_t call_send_tcpl(sockaddr_in destiny);
+        ssize_t call_recv_tcpl(sockaddr_in* source);
 
         //Manejo de nodos naranjas y verdes
         void read_graph_from_csv();

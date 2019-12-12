@@ -81,7 +81,7 @@ void Nodo_naranja::net_setup(struct sockaddr_in* me, char* my_port)
         this->setup_failure = true;
     }
 
-    int check_bind = bind(socket_fd,(struct sockaddr*)&me,sizeof(me));
+    int check_bind = bind(socket_fd,(struct sockaddr*)&this->me,sizeof(this->me));
     if(check_bind == -1)
     {
         std::cerr << "Sender: Error: Could not bind correctly, aborting probram." << std::endl;
@@ -178,7 +178,7 @@ void Nodo_naranja::read_orange_neighbours_from_file()
         temp.sin_port = htons( atoi( line.c_str() ));
         temp.sin_family = AF_INET;
 
-        if( (strcmp( this->my_ip, word.c_str())) ) //Si la linea que lei no corresponde a mi IP, lo agrego al grafo naranja
+        if( (strcmp( this->my_ip, word.c_str())) || (strcmp( this->my_port, line.c_str())) ) //Si la linea que lei no corresponde a mi IP, lo agrego al grafo naranja
         {
             this->grafo_n.insert( std::pair< int, sockaddr_in >( this->contador_nodos_naranjas, temp));
             this->contador_nodos_naranjas++;
@@ -198,17 +198,20 @@ int Nodo_naranja::get_num_nodos_naranjas()
     return this->contador_nodos_naranjas;
 }
 
-ssize_t Nodo_naranja::call_send_tcpl(struct sockaddr_in* destiny)
+ssize_t Nodo_naranja::call_send_tcpl(struct sockaddr_in destiny)
 {
-    socklen_t recv_size = sizeof(this->other);
+    //std::cout << "Voy a enviar a " << inet_ntoa(destiny->sin_addr) << " con puerto: " << ntohs(destiny->sin_port)<< std::endl;
+
+    socklen_t recv_size = sizeof(destiny);
     ssize_t bytes_sent = sendto(this->socket_fd, this->package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&destiny, recv_size);
     return bytes_sent;
 }
 
-ssize_t Nodo_naranja::call_recv_tcpl()
+ssize_t Nodo_naranja::call_recv_tcpl(struct sockaddr_in* source)
 {
-    socklen_t recv_size = sizeof(this->other);
-    ssize_t bytes_recieved = recvfrom(this->socket_fd, this->package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
+    socklen_t recv_size = sizeof(source);
+    ssize_t bytes_recieved = recvfrom(this->socket_fd, this->package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)source, &recv_size);
+     //bytes_received = recvfrom(socket_fd, package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&g_return_data, &recv_size);
     return bytes_recieved;
 }
 
@@ -260,18 +263,22 @@ void Nodo_naranja::start_listening()
     temp_node.name = -1;
     temp_node.instantiated = false;
     bool attending = false;
+    struct sockaddr_in g_return_data;
+    g_return_data.sin_family = AF_INET;
     while(true) //
     {
 
         if(!attending)
         {
-             bytes_received = recvfrom(socket_fd, package, PACK_SIZE, MSG_DONTWAIT, (struct sockaddr*)&this->other, &recv_size);
-             attending = true;
+             bytes_received = call_recv_tcpl(&g_return_data);
+             std::cout << "Recibo: " << bytes_received << " bytes" << std::endl;
         }
 
         //Si me llega un mensaje de un nodo verde y quedan nodos por instanciar
         if(bytes_received > 0 && contador_nodos_verdes > 0)
         {
+
+            attending = true;
             //Repetir hasta conseguir una respuesta positiva:
 
             std::map<NODO_V , std::list<int>>::iterator it;
@@ -281,6 +288,7 @@ void Nodo_naranja::start_listening()
             {
                 if(it->first.instantiated == false && temp_node.name != it->first.name )
                 {
+                    std::cout << "He encontrado un nodo no instanciado" << std::endl;
                     //Seleccionar el siguiente nodo verde que aún no ha sido instanciado en la topología
                     temp_node = it->first;
                     inst_flag = true;
@@ -293,17 +301,17 @@ void Nodo_naranja::start_listening()
             int positive_confirmations = 0;
             bool negative_confirmations = false;
             //repetir n veces
-            while(confirmations < ORANGE_NODES && !negative_confirmations)
+            while(confirmations < this->contador_nodos_naranjas && !negative_confirmations)
             {
 
                 std::map<int , sockaddr_in>::iterator it_n;
                 for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
                 {
                     //Envío request 205 a los demás nodos naranja
-                    ssize_t bytes_send = call_send_tcpl(&it_n->second);
+                    ssize_t bytes_send = call_send_tcpl(it_n->second);
                     usleep(100000);
                     //Espero la confirmación para el nodo naranja correspondiente
-                    ssize_t bytes_received = call_recv_tcpl();
+                    ssize_t bytes_received = call_recv_tcpl(&this->other);
                     if(bytes_received > 0)
                     {
                         char confirmation[2];
@@ -341,10 +349,15 @@ void Nodo_naranja::start_listening()
                 send_confirmation_n();  //Recordar que hay que usar el Send de TCPL dentro de la función
                 make_package_v(CONNECT_ACK,temp_node);
 
+                 std::cout << "Voy a mandar " << this->package << std::endl;
                 //Send tcpl
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
+                 ssize_t bytes_send = call_send_tcpl(g_return_data);
+
+                 //std::cout << "Envié mensaje al verde de " << bytes_send << " bytes" << std::endl;
 
                  attending = false;
+                 bytes_received = 0;
             }
         }
 
@@ -359,7 +372,7 @@ void Nodo_naranja::send_confirmation_n()
     for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
     {
         make_package_n(it_n->first,CONFIRM_POS,this->my_priority);
-        ssize_t bytes_send = call_send_tcpl(&it_n->second);
+        ssize_t bytes_send = call_send_tcpl(it_n->second);
     }
 }
 

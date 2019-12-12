@@ -49,7 +49,7 @@ void Nodo_Verde::net_setup(sockaddr_in *me, char *my_port)
         this->setup_failure = true;
     }
 
-    int check_bind = bind(socket_fd,(struct sockaddr*)&me,sizeof(me));
+    int check_bind = bind(socket_fd,(struct sockaddr*)&this->me,sizeof(this->me));
     if(check_bind == -1)
     {
         std::cerr << "Sender: Error: Could not bind correctly, aborting probram." << std::endl;
@@ -71,35 +71,42 @@ char *Nodo_Verde::my_strncpy(char *dest, const char *src, int n)
 void Nodo_Verde::send_instantiation_request()
 {
     ssize_t bytes_recieved = 0;
-    bool end = false;
+    bool end = false, last_neighbor = false;
     Data data;
 
     make_package_n( 1, CONNECT, 0 );
     ssize_t bytes_sent = call_send_tcpl();
+    //std::cout << "He enviado: " << bytes_sent << std::endl;
 
     while(!end)
     {
         bytes_recieved = call_recv_tcpl();
+
         char tarea = package[6];
-        if(bytes_recieved > 0 && tarea == CONNECT_ACK)
+        if(bytes_recieved > 0)
         {
-            std::cout << "Recibí respuesta de Naranja" << std::endl;
-            for(int bytes_count = 15; bytes_count < bytes_recieved; bytes_count += 4)
+            std::cout << "Recibí respuesta de Naranja de " << bytes_recieved << "bytes" << std::endl;
+            for(int bytes_count = 15; !last_neighbor; bytes_count += 4)
             {
                 my_strncpy(data.str,package+bytes_count,4);
-                neighbours.push_back(data.seq_num);
+
+                if(data.seq_num == 0)
+                    last_neighbor = true;
+                else
+                    neighbours.push_back(data.seq_num);
             }
             end = true;
         }
         make_package_n( 1, CONNECT, 0 );
         ssize_t bytes_sent = call_send_tcpl();
+       // std::cout << "He enviado: " << bytes_sent << std::endl;
     }
 
     std::cout << "Mis Vecinos son: " << std::endl;
     std::list<int>::iterator list_it;
     for(list_it = neighbours.begin();list_it != neighbours.end();++list_it)
     {
-        std::cout << *list_it;
+        std::cout << *list_it << ", ";
     }
 
     std::cout << std::endl;

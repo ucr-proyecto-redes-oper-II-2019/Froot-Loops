@@ -210,7 +210,7 @@ ssize_t Nodo_naranja::call_send_tcpl(struct sockaddr_in destiny)
 ssize_t Nodo_naranja::call_recv_tcpl(struct sockaddr_in* source)
 {
     socklen_t recv_size = sizeof(source);
-    ssize_t bytes_recieved = recvfrom(this->socket_fd, this->package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)source, &recv_size);
+    ssize_t bytes_recieved = recvfrom(this->socket_fd, this->package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)source, &recv_size);
      //bytes_received = recvfrom(socket_fd, package, ORANGE_MESSAGE_SIZE, MSG_DONTWAIT, (struct sockaddr*)&g_return_data, &recv_size);
     return bytes_recieved;
 }
@@ -263,8 +263,9 @@ void Nodo_naranja::start_listening()
     temp_node.name = -1;
     temp_node.instantiated = false;
     bool attending = false;
-    struct sockaddr_in g_return_data;
+    struct sockaddr_in g_return_data, last_attending;
     g_return_data.sin_family = AF_INET;
+    last_attending.sin_family = AF_INET;
     while(true) //
     {
 
@@ -272,6 +273,18 @@ void Nodo_naranja::start_listening()
         {
              bytes_received = call_recv_tcpl(&g_return_data);
              std::cout << "Recibo: " << bytes_received << " bytes" << std::endl;
+
+            if( last_attending.sin_addr.s_addr != g_return_data.sin_addr.s_addr || last_attending.sin_port != g_return_data.sin_port )
+            {
+                last_attending.sin_addr.s_addr = g_return_data.sin_addr.s_addr;
+                last_attending.sin_port = g_return_data.sin_port;
+                std::cout << "Entre al if" << std::endl;
+            }
+            else
+            {
+                std::cout << "Entre al else" << std::endl;
+                bytes_received = 0;
+            }
         }
 
         //Si me llega un mensaje de un nodo verde y quedan nodos por instanciar
@@ -362,6 +375,7 @@ void Nodo_naranja::start_listening()
         }
 
         usleep(500000);
+        //sleep(5);
     }
 }
 

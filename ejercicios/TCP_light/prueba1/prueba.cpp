@@ -16,7 +16,5 @@ int main(int argc, char* argv[])
     cout << buffer << endl;
     sender.receive(buffer);
     cout << buffer << endl;
-    sender.receive(buffer);
-    cout << buffer << endl;
     return 0;
 }

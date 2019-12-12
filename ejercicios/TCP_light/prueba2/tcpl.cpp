@@ -105,7 +105,8 @@ void tcpl::start_sending()
 {
     #pragma omp parallel num_threads(6) //shared(data_block, last_package_read, all_data_read, list, wait_flag)
     {
-        int my_thread_n = omp_get_thread_num(); //obtiene el identificador del hilo
+        //obtiene el identificador del hilo
+        int my_thread_n = omp_get_thread_num();
         //este hilo se encarga de meter la solicitud en la bolsa
         if (my_thread_n == 0)
         {
@@ -189,7 +190,7 @@ void tcpl::insertar()
     {
 			std::cout << "Sí recibí algo" << std::endl;
       Element my_element;
-      my_element.ttl = 500;
+      my_element.ttl = 1;
       
       /*se tiene que desempaquetar el paquete interno de tcpl que consta de
        * 4B de tamaño de ip
@@ -218,14 +219,17 @@ void tcpl::insertar()
       char tmp[1024];
       my_strncpy(tmp, my_element.element_package+5, 1024);
       tmp[1023] = 0;
-      std::cout << tcpl_package+28 <<floral fury std::endl;
+      std::cout << tcpl_package+28 << std::endl;
       
 			//se recupera el número de paquete para usarlo como llave en la bolsa
 			my_strncpy(data.str, my_element.element_package, 4);
 			int request_number = data.seq_num;
       
 			//se procede a meter en la bolsa
+			#pragma omp critical (bolsa)
+			{
 			bag[request_number] = my_element;
+			}
     }
     bytes_read = 0; //reinicia los bytes leídos porque de otra manera el hilo sigue creyendo que recibió algo
     //sleep(1);
@@ -237,34 +241,30 @@ void tcpl::leer()
 {
 	while(true)
 	{
-		if(!bag.empty())
+		#pragma omp critical (bolsa)
 		{
-			std::cout << "hay algo en la bolsa para enviar" << std::endl;
-			for (auto iterator : bag)
+			if(!bag.empty())
 			{
-				if(!iterator.second.ttl == 0)
+				std::cout << "hay algo en la bolsa para enviar" << std::endl;
+				for (auto iterator : bag)
 				{
-					other.sin_addr.s_addr = inet_addr(iterator.second.element_ip);
-					std::cout << iterator.second.element_ip << std::endl;
-					other.sin_port = htons(atoi(iterator.second.element_port));
-					std::cout << iterator.second.element_port << std::endl;
-					int bytes_enviados = sendto(socket_fd, iterator.second.element_package, PACK_SIZE, 0, (struct sockaddr*)&other, sizeof(other));
-					std::cout << "El mensaje a enviar es: " << iterator.second.element_package+5 << std::endl;
-					std::cout << "Se enviaron: " << bytes_enviados << " bytes." <<std::endl;
-					std::cout << "El ttl es: " << iterator.second.ttl << std::endl;
-					bag[iterator.first].ttl--;
-				}
-				else // si se acaba el ttl, se elimina el paquete de la bola de envíos
-				{
-					std::cout << "Se va a eliminar el paquete: " << iterator.first << std::endl;
-					delete[] iterator.second.element_ip;
-					delete[] iterator.second.element_package;
-					delete[] iterator.second.element_port;
-					bag.erase(iterator.first);
+					if(!iterator.second.ttl == 0)
+					{
+						other.sin_addr.s_addr = inet_addr(iterator.second.element_ip);
+						//std::cout << iterator.second.element_ip << std::endl;
+						other.sin_port = htons(atoi(iterator.second.element_port));
+						//std::cout << iterator.second.element_port << std::endl;
+						int bytes_enviados = sendto(socket_fd, iterator.second.element_package, PACK_SIZE, 0, (struct sockaddr*)&other, sizeof(other));
+						std::cout << "El mensaje a enviar es: " << iterator.second.element_package+5 << std::endl;
+						std::cout << "Se enviaron: " << bytes_enviados << " bytes." <<std::endl;
+						std::cout << "El ttl es: " << iterator.second.ttl << std::endl;
+						bag[iterator.first].ttl--;
+					}
 				}
 			}
+			
 		}
-		//sleep(1);
+		usleep(500000);
 	}
 }
 
@@ -289,30 +289,22 @@ void tcpl::eliminar()
 	ack_bag.clear();
 	while(true)
 	{
-		if(!ack_bag.empty())
+		#pragma omp critical (bolsa)
 		{
-			std::cout << "Se entra a eliminar paquetes por ack"<<std::endl;
-			std::cout << ack_bag.size() <<std::endl;
-			/*
-			std::list<int>::iterator it1;
-			for (it1=ack_bag.begin(); it1!=ack_bag.end(); ++it1)
+			if(!ack_bag.empty())
 			{
-				std::cout << *it1 <<std::endl;
-				delete[] bag[*it1].element_ip;
-				delete[] bag[*it1].element_package;
-				delete[] bag[*it1].element_port;
-				bag.erase(*it1);
-				ack_bag.erase(it1);
-			}
-			* */
-			for (int i = ack_bag.size(); i > 0; i--)
-			{
-				delete[] bag[ack_bag[i]].element_ip;
-				delete[] bag[ack_bag[i]].element_package;
-				delete[] bag[ack_bag[i]].element_port;
-				bag.erase(ack_bag[i]);
-				ack_bag.pop_back();
+				std::cout << "Se entra a eliminar paquetes por ack"<<std::endl;
 				std::cout << ack_bag.size() <<std::endl;
+
+				for (int i = ack_bag.size(); i > 0; i--)
+				{
+					delete[] bag[ack_bag[i]].element_ip;
+					delete[] bag[ack_bag[i]].element_package;
+					delete[] bag[ack_bag[i]].element_port;
+					bag.erase(ack_bag[i]);
+					ack_bag.pop_back();
+					std::cout << ack_bag.size() <<std::endl;
+				}
 			}
 		}
 		//sleep(1);
@@ -336,13 +328,22 @@ void tcpl::recibir_paquete()
 			//se extrae el identificador de paquete para ubicarlo en el mapa (bolsa)
 			my_strncpy(data.str, received_package, 4);
 			int key = data.seq_num;
-			my_element.element_package =  new char[PACK_THROUGHPUT];//Recordar hacer delete al eliminar el paquete de la bolsa por ttl o por ack
-			my_strncpy(my_element.element_package, received_package+5, PACK_THROUGHPUT);
-			received_bag[key] = my_element;
-			
-			//procede a enviar un ack del paquete recién recibido
-			received_package[4] = ACK;
-			sendto(socket_fd, received_package, PACK_SIZE, 0, (struct sockaddr*)&paquet_sock, sizeof(paquet_sock));
+			std::cout << key << std::endl;
+			if(received_bag.count(key) == 0)
+			{
+				my_element.element_package =  new char[PACK_THROUGHPUT];//Recordar hacer delete al eliminar el paquete de la bolsa por ttl o por ack
+				my_strncpy(my_element.element_package, received_package+5, PACK_THROUGHPUT);
+				received_bag[key] = my_element;
+				
+				//procede a enviar un ack del paquete recién recibido
+				received_package[4] = ACK;
+				int b = sendto(socket_fd, received_package, PACK_SIZE, 0, (struct sockaddr*)&paquet_sock, sizeof(paquet_sock));
+				std::cout << "ACK " << b << std::endl;
+			}
+			else
+			{
+				std::cout << "El paquete ya fue recibido"<<std::endl;
+			}
 		}
 	}
 }
@@ -359,9 +360,10 @@ void tcpl::pasar_capa_superior()
 	{
 		if(!received_bag.empty())
 		{
-			for (auto iterator : received_bag)
+			for (const auto iterator : received_bag)
 			{
-				sendto(socket_fd, iterator.second.element_package, PACK_SIZE, 0, (struct sockaddr*)&capa_sock, sizeof(capa_sock));
+				int bytes_sent = sendto(socket_fd, iterator.second.element_package, PACK_SIZE, 0, (struct sockaddr*)&capa_sock, sizeof(capa_sock));
+				received_bag.erase(iterator.first);
 			}
 			
 		}

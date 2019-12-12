@@ -97,9 +97,10 @@ void Nodo_Verde::send_instantiation_request()
             }
             end = true;
         }
+
         make_package_n( 1, CONNECT, 0 );
         ssize_t bytes_sent = call_send_tcpl();
-       // std::cout << "He enviado: " << bytes_sent << std::endl;
+        usleep(250000);
     }
 
     std::cout << "Mis Vecinos son: " << std::endl;

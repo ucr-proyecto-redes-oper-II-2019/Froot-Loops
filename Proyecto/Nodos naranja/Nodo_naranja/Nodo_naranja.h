@@ -17,6 +17,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <bits/stdc++.h>
+#include <omp.h>
 
 //Macros
 #define SEND 0
@@ -35,6 +36,7 @@
 #define CONFIRM_POS 210
 #define CONNECT 200
 #define CONNECT_ACK 201
+#define REQUEST_POS_ACK 206
 
 /// Avoids instances of a class to be copied
 #define DISABLE_COPY_CLASS(ClassName) \
@@ -60,6 +62,7 @@ class Nodo_naranja
         short int my_priority;
 
         char* package;
+        char* orange_pack;
         char* filename;
         char* orange_filename;
         char* my_ip;
@@ -71,12 +74,17 @@ class Nodo_naranja
         std::map < NODO_V, std::list <int> > grafo_v;
         std::map <int, sockaddr_in> grafo_n;
 
+        omp_lock_t writelock;
+        char map_flag;
+
     public:
         Nodo_naranja(char* my_ip, char* my_port, char* filename, char* orange_filename);
         ~Nodo_naranja();
 
         //Funciones del nodo naranja
         void start_listening();
+        void start_responding();
+        void run();
         void net_setup(struct sockaddr_in* me, char* my_port);
 
         void send_confirmation_n();
@@ -95,6 +103,7 @@ class Nodo_naranja
         void read_orange_neighbours_from_file();
         void show_green_graph();
         void show_orange_graph();
+
 
 
 };

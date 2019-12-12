@@ -28,6 +28,9 @@ Nodo_naranja::Nodo_naranja(char* my_ip, char* my_port, char* filename, char* ora
     this->contador_nodos_naranjas = 0;
     this->setup_failure = false;
 
+    omp_init_lock(&writelock);
+    this->map_flag = 'L';
+
     if(!file)
     {
         std::cout << "FATAL ERROR: " << filename << " NOT FOUND IN DIRECTORY, ABORTING PROGRAM..." << std::endl;
@@ -48,9 +51,10 @@ Nodo_naranja::Nodo_naranja(char* my_ip, char* my_port, char* filename, char* ora
     }
 
     this->package = new char[ORANGE_MESSAGE_SIZE];
+    this->orange_pack = new char[ORANGE_MESSAGE_SIZE];
 
     net_setup(&this->me, this->my_port);
-    start_listening();
+    run();
 
 }
 
@@ -58,6 +62,9 @@ Nodo_naranja::Nodo_naranja(char* my_ip, char* my_port, char* filename, char* ora
 Nodo_naranja::~Nodo_naranja()
 {
     delete this->package;
+    delete this->orange_pack;
+    omp_destroy_lock(&writelock);
+    close(this->socket_fd);
     std::cout << "Señal recibida, nodo naranja desconectándose." << std::endl;
 
 }
@@ -253,6 +260,23 @@ void Nodo_naranja::show_orange_graph()
     std::cout << "Contador nodos naranjas: " << this->contador_nodos_naranjas <<std::endl;
 }
 
+void Nodo_naranja::run()
+{
+    #pragma omp parallel num_threads(2) //shared(data_block, last_package_read, all_data_read, list, wait_flag)
+    {
+        int my_thread_n = omp_get_thread_num(); //obtiene el identificador del hilo
+        if (my_thread_n == 0)
+        {
+            start_listening();
+        }
+        if (my_thread_n == 1)
+        {
+            start_responding();
+        }
+    }
+
+}
+
 //---------Funcionalidades de nodo naranja--------------//
 
 void Nodo_naranja::start_listening()
@@ -286,9 +310,9 @@ void Nodo_naranja::start_listening()
                 bytes_received = 0;
             }
         }
-
+        char task = CONNECT;
         //Si me llega un mensaje de un nodo verde y quedan nodos por instanciar
-        if(bytes_received > 0 && contador_nodos_verdes > 0)
+        if(bytes_received > 0 && contador_nodos_verdes > 0 && package[6] == task)
         {
 
             attending = true;
@@ -296,6 +320,12 @@ void Nodo_naranja::start_listening()
 
             std::map<NODO_V , std::list<int>>::iterator it;
             bool inst_flag = false;
+
+            //ADQUIRIR CONTROL DEL MAPA
+            while(this->map_flag != 'L')
+                ;
+
+            omp_set_lock(&this->writelock);
 
             for ( it = this->grafo_v.begin(); it != this->grafo_v.end() && !inst_flag ; it++ )
             {
@@ -308,7 +338,9 @@ void Nodo_naranja::start_listening()
                 }
             }
 
-            make_package_n(temp_node.name,REQUEST_POS,this->my_priority);
+            //DEVOLVER CONTROL DEL MAPA
+            this->map_flag = 'R';
+            omp_unset_lock(&this->writelock);
 
             int confirmations = 0;
             int positive_confirmations = 0;
@@ -320,6 +352,7 @@ void Nodo_naranja::start_listening()
                 std::map<int , sockaddr_in>::iterator it_n;
                 for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
                 {
+                    make_package_n(temp_node.name,REQUEST_POS,this->my_priority);
                     //Envío request 205 a los demás nodos naranja
                     ssize_t bytes_send = call_send_tcpl(it_n->second);
                     usleep(100000);
@@ -336,7 +369,7 @@ void Nodo_naranja::start_listening()
                         if(it_n->second.sin_addr.s_addr == this->other.sin_addr.s_addr)//Recordar añadir: && it_n->second.sin_addr == this->other.sin_addr
                         {
                             confirmations++;
-                            if( atoi(confirmation) == 1 && atoi(request_pos_ack) == 206 )
+                            if( atoi(confirmation) == 1 && atoi(request_pos_ack) == REQUEST_POS_ACK)
                             {
                                 ++positive_confirmations;
                             }
@@ -353,21 +386,28 @@ void Nodo_naranja::start_listening()
 
             if(confirmations == positive_confirmations)
             {
+                //ADQUIRIR CONTROL DEL MAPA
+                while(this->map_flag != 'L')
+                    ;
+
+
                 std::list <int> temp = grafo_v[temp_node];
                 this->grafo_v.erase(temp_node);
                 temp_node.instantiated = true;
                 this->grafo_v.insert( std::pair< NODO_V, std::list<int> >(temp_node, temp));
+
+                //DEVOLVER CONTROL DEL MAPA
+                this->map_flag = 'R';
+                omp_unset_lock(&this->writelock);
 
                 //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
                 send_confirmation_n();  //Recordar que hay que usar el Send de TCPL dentro de la función
                 make_package_v(CONNECT_ACK,temp_node);
 
                  std::cout << "Voy a mandar " << this->package << std::endl;
-                //Send tcpl
+
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
                  ssize_t bytes_send = call_send_tcpl(g_return_data);
-
-                 //std::cout << "Envié mensaje al verde de " << bytes_send << " bytes" << std::endl;
 
                  attending = false;
                  bytes_received = 0;
@@ -376,6 +416,90 @@ void Nodo_naranja::start_listening()
 
         usleep(500000);
         //sleep(5);
+    }
+}
+
+void Nodo_naranja::start_responding()
+{
+    struct sockaddr_in o_return_data;
+    while(true)
+    {
+        ssize_t bytes_received = call_recv_tcpl(&o_return_data);
+        std::cout << "Responding: Recibí: " << bytes_received << " bytes" << std::endl;
+
+        char request_pos = REQUEST_POS;
+        char confirm_pos = CONFIRM_POS;
+
+        //Si me llega un mensaje de un nodo naranja y respondemos según la solicitud
+        if(bytes_received > 0)
+        {
+            if(package[6] == request_pos) //Me preguntan sobre un nodo instanciado
+            {
+                my_strncpy(data.str, package+REQUEST_NUM, BEGIN_CONFIRMATION_ANSWER);
+                NODO_V temp_node;
+                temp_node.name = data.seq_num;
+                bool answer = false;
+
+                //ADQUIRIR CONTROL DEL MAPA
+                while(this->map_flag != 'R')
+                    ;
+
+                omp_set_lock(&this->writelock);
+
+                std::map<NODO_V , std::list<int>>::iterator it;
+
+                for ( it = this->grafo_v.begin(); it != this->grafo_v.end(); it++ )
+                {
+                    if(it->first.name == temp_node.name)
+                    {
+                        if(it->first.instantiated)
+                        {
+                            answer = true;
+                        }
+                    }
+                }
+
+                if( answer )//Si ya tenía el Nodo instanciado
+                {
+                    char answer = 0;
+                    make_package_n(answer, REQUEST_POS_ACK, my_priority);
+                    call_send_tcpl(o_return_data);
+                }
+                else
+                {
+                    char answer = 1;
+                    make_package_n(answer, REQUEST_POS_ACK, my_priority);
+                    call_send_tcpl(o_return_data);
+                }
+
+                //DEVOLVER CONTROL DEL MAPA
+                this->map_flag = 'L';
+                omp_unset_lock(&this->writelock);
+
+            }
+            else if(package[6] == confirm_pos) //Me confirman la instanciación de un nodo
+            {
+                my_strncpy(data.str, package+REQUEST_NUM, BEGIN_CONFIRMATION_ANSWER);
+                NODO_V temp_node;
+                temp_node.name = data.seq_num;
+
+                //ADQUIRIR CONTROL DEL MAPA
+                while(this->map_flag != 'R')
+                    ;
+
+                omp_set_lock(&this->writelock);
+
+                std::list <int> temp_list = grafo_v[temp_node];
+                this->grafo_v.erase(temp_node);
+                temp_node.instantiated = true;
+                this->grafo_v.insert( std::pair< NODO_V, std::list<int> >(temp_node, temp_list));
+
+                //DEVOLVER CONTROL DEL MAPA
+                this->map_flag = 'L';
+                omp_unset_lock(&this->writelock);
+            }
+        }
+        usleep(300000);
     }
 }
 
@@ -400,10 +524,10 @@ void Nodo_naranja::make_package_n(short int inicio, int task, short int priority
     tarea_a_realizar[0] = task;
 
     data.seq_num = request_number;
-    my_strncpy(package, data.str, REQUEST_NUM);
-    my_strncpy(package+4, (char*)&inicio, BEGIN_CONFIRMATION_ANSWER);
-    my_strncpy(package+6, tarea_a_realizar ,TASK_TO_REALIZE);
-    my_strncpy(package+8, (char*)&priority, PRIORITY_SIZE);
+    my_strncpy(orange_pack, data.str, REQUEST_NUM);
+    my_strncpy(orange_pack+4, (char*)&inicio, BEGIN_CONFIRMATION_ANSWER);
+    my_strncpy(orange_pack+6, tarea_a_realizar ,TASK_TO_REALIZE);
+    my_strncpy(orange_pack+8, (char*)&priority, PRIORITY_SIZE);
 }
 
 void Nodo_naranja::make_package_v(int task, NODO_V nodo)

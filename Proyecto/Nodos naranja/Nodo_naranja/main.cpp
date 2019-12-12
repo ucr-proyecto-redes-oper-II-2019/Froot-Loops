@@ -5,7 +5,7 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    std::cout << "Nodo Naranja!" << std::endl;
+    std::cout << "Nodo Naranja!";
     if(argc < 5)
     {
         std::cout << "NOT ENOUGH ARGUMENTS\nUSAGE: ./lector <my_ip> <my_port> <green_filename> <orange_filename>" << std::endl;

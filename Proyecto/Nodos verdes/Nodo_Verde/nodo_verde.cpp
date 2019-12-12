@@ -85,7 +85,7 @@ void Nodo_Verde::send_instantiation_request()
         char tarea = package[6];
         if(bytes_recieved > 0)
         {
-            std::cout << "Recibí respuesta de Naranja de " << bytes_recieved << "bytes" << std::endl;
+            std::cout << "Recibí respuesta de Naranja de " << bytes_recieved << " bytes" << std::endl;
             for(int bytes_count = 15; !last_neighbor; bytes_count += 4)
             {
                 my_strncpy(data.str,package+bytes_count,4);
@@ -96,6 +96,7 @@ void Nodo_Verde::send_instantiation_request()
                     neighbours.push_back(data.seq_num);
             }
             end = true;
+            sleep(1);
         }
 
         make_package_n( 1, CONNECT, 0 );

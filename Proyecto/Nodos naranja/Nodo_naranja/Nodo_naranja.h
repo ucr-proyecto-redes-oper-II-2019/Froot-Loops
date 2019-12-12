@@ -34,6 +34,7 @@
 #define ORANGE_NODES 3
 #define REQUEST_POS 205
 #define CONFIRM_POS 210
+#define CONFIRM_POS_ACK 211
 #define CONNECT 200
 #define CONNECT_ACK 201
 #define REQUEST_POS_ACK 206
@@ -95,8 +96,8 @@ class Nodo_naranja
         char* my_strncpy(char *dest, const char *src, int n);
         int get_num_nodos_verdes();
         int get_num_nodos_naranjas();
-        ssize_t call_send_tcpl(sockaddr_in destiny);
-        ssize_t call_recv_tcpl(sockaddr_in* source);
+        ssize_t call_send_tcpl(sockaddr_in destiny, char* send_package);
+        ssize_t call_recv_tcpl(sockaddr_in* source, char* recv_package);
 
         //Manejo de nodos naranjas y verdes
         void read_graph_from_csv();

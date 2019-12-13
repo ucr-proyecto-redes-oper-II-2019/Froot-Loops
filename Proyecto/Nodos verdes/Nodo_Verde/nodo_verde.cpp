@@ -121,7 +121,7 @@ void Nodo_Verde::send_instantiation_request()
 
     while(true)
     {
-        bytes_recieved = call_recv_tcpl();
+        /*bytes_recieved = call_recv_tcpl();
 
         if(bytes_recieved > 0)
         {
@@ -137,7 +137,7 @@ void Nodo_Verde::send_instantiation_request()
                 make_package_a(1, BLUE_ANS, 1);
                 bytes_sent = call_send_tcpl();
             }
-        }
+        }*/
         usleep(300000);
 
     }

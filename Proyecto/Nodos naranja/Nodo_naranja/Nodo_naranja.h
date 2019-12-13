@@ -89,7 +89,7 @@ class Nodo_naranja
         void net_setup(struct sockaddr_in* me, char* my_port);
 
         void send_confirmation_n();
-        void make_package_n(short int inicio, int task, short int priority );
+        void make_package_n(short int inicio, int task, short int priority);
         void make_package_v(int task, NODO_V nodo);
 
         //Funciones de utilidad

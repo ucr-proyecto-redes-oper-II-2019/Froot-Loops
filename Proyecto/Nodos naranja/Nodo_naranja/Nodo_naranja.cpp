@@ -278,7 +278,7 @@ void Nodo_naranja::start_listening()
     struct sockaddr_in g_return_data, last_attending;
     g_return_data.sin_family = AF_INET;
     last_attending.sin_family = AF_INET;
-    while(true) //
+    while(true)
     {
         int task_msg = 0;
         if(!attending)
@@ -410,6 +410,7 @@ void Nodo_naranja::start_listening()
 
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
                  ssize_t bytes_send = call_send_tcpl(g_return_data, this->package);
+                 this->contador_nodos_verdes--;
 
                  attending = false;
                  bytes_received = 0;
@@ -489,7 +490,7 @@ void Nodo_naranja::start_responding()
                 omp_unset_lock(&this->writelock);
 
             }
-            else if(task_msg == CONFIRM_POS) //Me confirman la instanciación de un nodo
+            if(task_msg == CONFIRM_POS) //Me confirman la instanciación de un nodo
             {
                 std::cout << "Responding: Recibi un CONFIRM POS" << std::endl;
 
@@ -527,10 +528,16 @@ void Nodo_naranja::send_confirmation_n()
 {
     socklen_t recv_size = sizeof(this->other);
     std::map<int , sockaddr_in>::iterator it_n;
-    for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
+
+    int attempts = 0;
+    while(attempts < 10)
     {
-        make_package_n(it_n->first,CONFIRM_POS,this->my_priority);
-        ssize_t bytes_send = call_send_tcpl(it_n->second, this->orange_pack);
+        for( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
+        {
+            make_package_n(it_n->first,CONFIRM_POS,this->my_priority);
+            ssize_t bytes_send = call_send_tcpl(it_n->second, this->orange_pack);
+        }
+        ++attempts;
     }
 }
 

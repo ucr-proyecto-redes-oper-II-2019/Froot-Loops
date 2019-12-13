@@ -294,18 +294,16 @@ void Nodo_naranja::start_listening()
             {
                 last_attending.sin_addr.s_addr = g_return_data.sin_addr.s_addr;
                 last_attending.sin_port = g_return_data.sin_port;
-                std::cout << "Entre al if" << std::endl;
             }
             else
             {
-                std::cout << "Entre al else" << std::endl;
                 bytes_received = 0;
             }
         }
         //Si me llega un mensaje de un nodo verde y quedan nodos por instanciar
         if(bytes_received > 0 && contador_nodos_verdes > 0 && task_msg == 200)
         {
-            std::cout << "Task Recibido: " << task_msg;
+            //std::cout << "Task Recibido: " << task_msg;
             attending = true;
             //Repetir hasta conseguir una respuesta positiva:
 
@@ -345,7 +343,7 @@ void Nodo_naranja::start_listening()
                     make_package_n(temp_node.name,REQUEST_POS,this->my_priority);
                     //Envío request 205 a los demás nodos naranja
                     ssize_t bytes_send = call_send_tcpl(it_n->second, this->orange_pack);
-                    std::cout << "Sending: Envie request_pos al vecino " << it_n->first << std::endl;
+                    //std::cout << "Sending: Envie request_pos al vecino " << it_n->first << std::endl;
                     usleep(100000);
                     //Espero la confirmación para el nodo naranja correspondiente
                     ssize_t bytes_received = call_recv_tcpl(&this->other, this->orange_pack);
@@ -362,21 +360,21 @@ void Nodo_naranja::start_listening()
                         my_strncpy( data.str, orange_pack+6, TASK_TO_REALIZE);
                         request_pos_ack = data.seq_num;
 
-                        std::cout << "Sending: Recibi respuesta del otro naranja" << std::endl;
+                        //std::cout << "Sending: Recibi respuesta del otro naranja" << std::endl;
 
                         if(it_n->second.sin_addr.s_addr == this->other.sin_addr.s_addr)//Recordar añadir: && it_n->second.sin_addr == this->other.sin_addr
                         {
-                            std::cout << "Sending: la respuesta es igual al otro ip: " << confirmation << " task: " << request_pos_ack << std::endl;
+                           // std::cout << "Sending: la respuesta es igual al otro ip: " << confirmation << " task: " << request_pos_ack << std::endl;
                             confirmations++;
                             if( confirmation == 1 && request_pos_ack == REQUEST_POS_ACK)
                             {
                                 ++positive_confirmations;
-                                std::cout << "Sending: Me llegó request pos ACK con valor " << (confirmation) << std::endl;
+                                //std::cout << "Sending: Me llegó request pos ACK con valor " << (confirmation) << std::endl;
                             }
                             else if( confirmation == 0 && request_pos_ack == REQUEST_POS_ACK )
                             {
                                 negative_confirmations = true;
-                                std::cout << "Sending: Me llegó una confirmación negativa" << std::endl;
+                                //std::cout << "Sending: Me llegó una confirmación negativa" << std::endl;
 
                             }
                         }
@@ -440,7 +438,7 @@ void Nodo_naranja::start_responding()
         my_strncpy( task.str, package+6, 1 );
         task_msg = task.seq_num;
 
-        std::cout << "Responding: TASK:" << task_msg << std::endl;
+        //std::cout << "Responding: TASK:" << task_msg << std::endl;
 
          //Si me llega un mensaje de un nodo naranja y respondemos según la solicitud
         if(bytes_received > 0)
@@ -492,7 +490,7 @@ void Nodo_naranja::start_responding()
             }
             if(task_msg == CONFIRM_POS) //Me confirman la instanciación de un nodo
             {
-                std::cout << "Responding: Recibi un CONFIRM POS" << std::endl;
+                //std::cout << "Responding: Recibi un CONFIRM POS" << std::endl;
                 bzero(&data,4);
 
                 my_strncpy(data.str, orange_pack+4, BEGIN_CONFIRMATION_ANSWER);

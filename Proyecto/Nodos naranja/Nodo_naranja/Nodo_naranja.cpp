@@ -403,7 +403,7 @@ void Nodo_naranja::start_listening()
                 omp_unset_lock(&this->writelock);
 
                 //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
-                send_confirmation_n();  //Recordar que hay que usar el Send de TCPL dentro de la función
+                send_confirmation_n(temp_node.name);  //Recordar que hay que usar el Send de TCPL dentro de la función
                 make_package_v(CONNECT_ACK,temp_node);
 
                  std::cout << "Sending: Voy a mandar respuesta al verde #" << temp_node.name << std::endl;
@@ -493,10 +493,13 @@ void Nodo_naranja::start_responding()
             if(task_msg == CONFIRM_POS) //Me confirman la instanciación de un nodo
             {
                 std::cout << "Responding: Recibi un CONFIRM POS" << std::endl;
+                bzero(&data,4);
 
-                my_strncpy(data.str, package+REQUEST_NUM, BEGIN_CONFIRMATION_ANSWER);
+                my_strncpy(data.str, orange_pack+4, BEGIN_CONFIRMATION_ANSWER);
                 NODO_V temp_node;
+                temp_node.instantiated = false;
                 temp_node.name = data.seq_num;
+                std::cout << "Responding: ConfirmPOS del Nodo #: " << temp_node.name << std::endl;
 
                 //ADQUIRIR CONTROL DEL MAPA
                 while(this->map_flag != 'R')
@@ -524,17 +527,21 @@ void Nodo_naranja::start_responding()
     }
 }
 
-void Nodo_naranja::send_confirmation_n()
+void Nodo_naranja::send_confirmation_n(short int node_id)
 {
     socklen_t recv_size = sizeof(this->other);
     std::map<int , sockaddr_in>::iterator it_n;
+    Data node;
+    bzero(&node, 4);
 
     int attempts = 0;
     while(attempts < 10)
     {
         for( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
         {
-            make_package_n(it_n->first,CONFIRM_POS,this->my_priority);
+            make_package_n(node_id,CONFIRM_POS,this->my_priority);
+            my_strncpy(node.str, orange_pack+4, 2);
+            std::cout << "Enviando CONFIRM POS con ID #:" << node.seq_num << std::endl;
             ssize_t bytes_send = call_send_tcpl(it_n->second, this->orange_pack);
         }
         ++attempts;

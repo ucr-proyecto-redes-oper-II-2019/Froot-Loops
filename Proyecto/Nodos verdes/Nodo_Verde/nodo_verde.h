@@ -42,6 +42,8 @@
 #define CONFIRM_POS 210
 #define CONNECT 200
 #define CONNECT_ACK 201
+#define BLUE_REQ 600
+#define BLUE_ANS 601
 
 /// Avoids instances of a class to be copied
 #define DISABLE_COPY_CLASS(ClassName) \
@@ -77,6 +79,7 @@ class Nodo_Verde
         void net_setup(struct sockaddr_in* me, char* my_port);
         void send_instantiation_request();
         void make_package_n(short int inicio, int task, short int priority);
+        void make_package_a(short int inicio, int task, short int priority);
         ssize_t call_send_tcpl();
         ssize_t call_recv_tcpl();
         char* my_strncpy(char *dest, const char *src, int n);

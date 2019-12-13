@@ -104,16 +104,46 @@ void Nodo_Verde::send_instantiation_request()
         usleep(250000);
     }
 
+
+    std::cout << "Me respondieron con el id " << neighbours.front() << std::endl;
     std::cout << "Mis Vecinos son: " << std::endl;
     std::list<int>::iterator list_it;
+    int contador = 0;
     for(list_it = neighbours.begin();list_it != neighbours.end();++list_it)
     {
-        std::cout << *list_it << ", ";
+        if(contador > 0)
+            std::cout << *list_it << ", ";
+
+        contador++;
     }
 
     std::cout << std::endl;
 
+    while(true)
+    {
+        bytes_recieved = call_recv_tcpl();
+
+        if(bytes_recieved > 0)
+        {
+            int task_msg = 0;
+            Data task;
+            bzero(&task, 4);
+
+            my_strncpy( task.str, package+6, 1 );
+            task_msg = task.seq_num;
+
+            if(task_msg == BLUE_REQ)
+            {
+                make_package_a(1, BLUE_ANS, 1);
+                bytes_sent = call_send_tcpl();
+            }
+        }
+        usleep(300000);
+
+    }
+
 }
+
 
 void Nodo_Verde::make_package_n(short int inicio, int task, short int priority)
 {
@@ -129,7 +159,41 @@ void Nodo_Verde::make_package_n(short int inicio, int task, short int priority)
     my_strncpy(package+4, (char*)&inicio, BEGIN_CONFIRMATION_ANSWER);
     my_strncpy(package+6, tarea_a_realizar ,TASK_TO_REALIZE);
     my_strncpy(package+8, (char*)&priority, PRIORITY_SIZE);
+
+
 }
+
+void Nodo_Verde::make_package_a(short int inicio, int task, short int priority)
+{
+    srand( time(nullptr));
+    int request_number = rand() % INT_MAX-1; //<--RANDOM
+    data.seq_num = request_number;
+    my_strncpy(package, data.str, REQUEST_NUM);
+
+    Data translate;
+    bzero(&translate,4);
+    translate.seq_num = inicio;
+    my_strncpy(package+4, translate.str, BEGIN_CONFIRMATION_ANSWER);
+
+    translate.seq_num = task;
+    my_strncpy(package+6, translate.str ,TASK_TO_REALIZE);
+
+    translate.seq_num = 1;
+    my_strncpy(package+8, translate.str, PRIORITY_SIZE);
+
+    std::list<int>::iterator list_it;
+
+    int offset = ORANGE_HEADER_SIZE;
+    for(list_it = neighbours.begin();list_it != neighbours.end();++list_it)
+    {
+        data.seq_num = *list_it;
+        my_strncpy(package+offset, data.str,4 );
+        offset += 4;
+    }
+
+}
+
+
 
 ssize_t Nodo_Verde::call_send_tcpl()
 {

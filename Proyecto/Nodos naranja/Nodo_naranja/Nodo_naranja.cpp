@@ -579,7 +579,10 @@ void Nodo_naranja::make_package_v(int task, NODO_V nodo)
     my_strncpy(package+6,tarea_a_realizar,TASK_TO_REALIZE);
     std::list<int>::iterator list_it;
 
-    int offset = ORANGE_HEADER_SIZE;
+    data.seq_num = nodo.name;
+    my_strncpy(package+ORANGE_HEADER_SIZE, data.str,4);
+
+    int offset = ORANGE_HEADER_SIZE+4;
     for(list_it = this->grafo_v[nodo].begin(); list_it != this->grafo_v[nodo].end() ;++list_it)
     {
         my_strncpy(package+offset,(char*)&(*list_it),4);

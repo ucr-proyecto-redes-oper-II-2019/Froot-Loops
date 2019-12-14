@@ -2,9 +2,9 @@
 
 union Data
 {
-    int seq_num;
+    int num;
     char str[4];
-}data;
+};
 
 bool operator<(const NODO_V& n1, const NODO_V& n2)
 {
@@ -78,7 +78,7 @@ void Nodo_naranja::net_setup(struct sockaddr_in* me, char* my_port)
     bzero(me, sizeof(&me)); //se limpian ambos registros de antemano
 
     me->sin_addr.s_addr = INADDR_ANY; //se pueden recibir paquetes de cualquier fuente
-    me->sin_port = htons(atoi(my_port));//Mi puerto donde estoy escuchando
+    me->sin_port = htons(static_cast<unsigned short>(atoi(my_port)));//Mi puerto donde estoy escuchando
     me->sin_family = AF_INET;
 
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -88,7 +88,8 @@ void Nodo_naranja::net_setup(struct sockaddr_in* me, char* my_port)
         this->setup_failure = true;
     }
 
-    int check_bind = bind(socket_fd,(struct sockaddr*)&this->me,sizeof(this->me));
+    //int check_bind = bind(socket_fd,(struct sockaddr*)&this->me,sizeof(this->me));
+    int check_bind = bind(socket_fd,reinterpret_cast<struct sockaddr*>(&this->me),sizeof(this->me));
     if(check_bind == -1)
     {
         std::cerr << "Sender: Error: Could not bind correctly, aborting probram." << std::endl;
@@ -172,7 +173,7 @@ void Nodo_naranja::read_orange_neighbours_from_file()
         }
         //Creamos la estructura de red para el nodo de esta linea del archivo
         temp.sin_addr.s_addr = inet_addr( word.c_str() );
-        temp.sin_port = htons( atoi( line.c_str() ));
+        temp.sin_port = htons(static_cast<unsigned short>( atoi(line.c_str()) ) );
         temp.sin_family = AF_INET;
 
         if( (strcmp( this->my_ip, word.c_str())) || (strcmp( this->my_port, line.c_str())) ) //Si la linea que lei no corresponde a mi IP, lo agrego al grafo naranja
@@ -199,14 +200,14 @@ ssize_t Nodo_naranja::call_send_tcpl(struct sockaddr_in destiny, char* send_pack
 {
 
     socklen_t recv_size = sizeof(destiny);
-    ssize_t bytes_sent = sendto(this->socket_fd, send_package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)&destiny, recv_size);
+    ssize_t bytes_sent = sendto(this->socket_fd, send_package, ORANGE_MESSAGE_SIZE, 0, reinterpret_cast<struct sockaddr*>(&destiny), recv_size);
     return bytes_sent;
 }
 
 ssize_t Nodo_naranja::call_recv_tcpl(struct sockaddr_in* source, char* recv_package)
 {
     socklen_t recv_size = sizeof(source);
-    ssize_t bytes_recieved = recvfrom(this->socket_fd, recv_package, ORANGE_MESSAGE_SIZE, 0, (struct sockaddr*)source, &recv_size);
+    ssize_t bytes_recieved = recvfrom(this->socket_fd, recv_package, ORANGE_MESSAGE_SIZE, 0, reinterpret_cast<struct sockaddr*>(source), &recv_size);
     return bytes_recieved;
 }
 
@@ -267,9 +268,8 @@ void Nodo_naranja::run()
 
 //---------Funcionalidades de nodo naranja--------------//
 
-void Nodo_naranja::start_listening()
+[[noreturn]] void Nodo_naranja::start_listening()
 {
-    socklen_t recv_size = sizeof(this->other);
     NODO_V temp_node;
     ssize_t bytes_received = 0;
     temp_node.name = -1;
@@ -288,7 +288,7 @@ void Nodo_naranja::start_listening()
 
              bytes_received = call_recv_tcpl(&g_return_data, this->package);
              my_strncpy( task.str, package+6, 1 );
-             task_msg = task.seq_num;
+             task_msg = task.num;
 
             if( last_attending.sin_addr.s_addr != g_return_data.sin_addr.s_addr || last_attending.sin_port != g_return_data.sin_port )
             {
@@ -340,9 +340,9 @@ void Nodo_naranja::start_listening()
                 std::map<int , sockaddr_in>::iterator it_n;
                 for ( it_n = this->grafo_n.begin(); it_n != this->grafo_n.end(); it_n++ )
                 {
-                    make_package_n(temp_node.name,REQUEST_POS,this->my_priority);
+                    make_package_n(static_cast<short>(temp_node.name),REQUEST_POS,this->my_priority);
                     //Envío request 205 a los demás nodos naranja
-                    ssize_t bytes_send = call_send_tcpl(it_n->second, this->orange_pack);
+                    call_send_tcpl(it_n->second, this->orange_pack);
                     //std::cout << "Sending: Envie request_pos al vecino " << it_n->first << std::endl;
                     usleep(100000);
                     //Espero la confirmación para el nodo naranja correspondiente
@@ -356,9 +356,9 @@ void Nodo_naranja::start_listening()
                         int request_pos_ack = 0;
 
                         my_strncpy( data.str, orange_pack+4, BEGIN_CONFIRMATION_ANSWER );
-                        confirmation = data.seq_num;
+                        confirmation = data.num;
                         my_strncpy( data.str, orange_pack+6, TASK_TO_REALIZE);
-                        request_pos_ack = data.seq_num;
+                        request_pos_ack = data.num;
 
                         //std::cout << "Sending: Recibi respuesta del otro naranja" << std::endl;
 
@@ -401,13 +401,13 @@ void Nodo_naranja::start_listening()
                 omp_unset_lock(&this->writelock);
 
                 //ENVIAR MENSAJE DE CONFIRMACIÓN A LOS NARANJAS
-                send_confirmation_n(temp_node.name);  //Recordar que hay que usar el Send de TCPL dentro de la función
+                send_confirmation_n(static_cast<short>(temp_node.name));  //Recordar que hay que usar el Send de TCPL dentro de la función
                 make_package_v(CONNECT_ACK,temp_node);
 
                  std::cout << "Sending: Voy a mandar respuesta al verde #" << temp_node.name << std::endl;
 
                 //ENVIAR MENSAJE CON LOS VECINOS AL VERDE SOLICITANTE
-                 ssize_t bytes_send = call_send_tcpl(g_return_data, this->package);
+                 call_send_tcpl(g_return_data, this->package);
                  this->contador_nodos_verdes--;
 
                  attending = false;
@@ -424,7 +424,7 @@ void Nodo_naranja::start_listening()
     }
 }
 
-void Nodo_naranja::start_responding()
+[[noreturn]] void Nodo_naranja::start_responding()
 {
     struct sockaddr_in o_return_data;
     while(true)
@@ -432,11 +432,12 @@ void Nodo_naranja::start_responding()
         ssize_t bytes_received = call_recv_tcpl(&o_return_data, this->orange_pack);
 
         int task_msg = 0;
-        Data task;
+        Data task,data;
+        bzero(&data,4);
         bzero(&task, 4);
 
         my_strncpy( task.str, package+6, 1 );
-        task_msg = task.seq_num;
+        task_msg = task.num;
 
         //std::cout << "Responding: TASK:" << task_msg << std::endl;
 
@@ -448,7 +449,7 @@ void Nodo_naranja::start_responding()
                 std::cout << "Responding: Recibi un REQUEST POS" << std::endl;
                 my_strncpy(data.str, package+REQUEST_NUM, BEGIN_CONFIRMATION_ANSWER);
                 NODO_V temp_node;
-                temp_node.name = data.seq_num;
+                temp_node.name = data.num;
                 bool answer = false;
 
                 //ADQUIRIR CONTROL DEL MAPA
@@ -496,7 +497,7 @@ void Nodo_naranja::start_responding()
                 my_strncpy(data.str, orange_pack+4, BEGIN_CONFIRMATION_ANSWER);
                 NODO_V temp_node;
                 temp_node.instantiated = false;
-                temp_node.name = data.seq_num;
+                temp_node.name = data.num;
                 std::cout << "Responding: ConfirmPOS del Nodo #: " << temp_node.name << std::endl;
 
                 //ADQUIRIR CONTROL DEL MAPA
@@ -510,7 +511,7 @@ void Nodo_naranja::start_responding()
                 temp_node.instantiated = true;
                 this->grafo_v.insert( std::pair< NODO_V, std::list<int> >(temp_node, temp_list));
 
-                make_package_n(temp_node.name, CONFIRM_POS_ACK, this->my_priority);
+                make_package_n(static_cast<short>(temp_node.name), CONFIRM_POS_ACK, this->my_priority);
                 call_send_tcpl(o_return_data, this->orange_pack);
 
                 //DEVOLVER CONTROL DEL MAPA
@@ -527,7 +528,6 @@ void Nodo_naranja::start_responding()
 
 void Nodo_naranja::send_confirmation_n(short int node_id)
 {
-    socklen_t recv_size = sizeof(this->other);
     std::map<int , sockaddr_in>::iterator it_n;
     Data node;
     bzero(&node, 4);
@@ -539,8 +539,8 @@ void Nodo_naranja::send_confirmation_n(short int node_id)
         {
             make_package_n(node_id,CONFIRM_POS,this->my_priority);
             my_strncpy(node.str, orange_pack+4, 2);
-            std::cout << "Enviando CONFIRM POS con ID #:" << node.seq_num << std::endl;
-            ssize_t bytes_send = call_send_tcpl(it_n->second, this->orange_pack);
+            std::cout << "Enviando CONFIRM POS con ID #:" << node.num << std::endl;
+            call_send_tcpl(it_n->second, this->orange_pack);
         }
         ++attempts;
     }
@@ -548,44 +548,51 @@ void Nodo_naranja::send_confirmation_n(short int node_id)
 
 void Nodo_naranja::make_package_n(short int inicio, int task, short int priority)
 {
-    srand( time(nullptr));
+    Data translate,data;
+    bzero(&translate,4);
+    bzero(&data,4);
+
+    srand( static_cast<unsigned int>(time(nullptr) ) );
     int request_number = rand() % INT_MAX-1; //<--RANDOM
-    data.seq_num = request_number;
+    data.num = request_number;
     my_strncpy(orange_pack, data.str, REQUEST_NUM);
 
-    Data translate;
-    bzero(&translate,4);
-    translate.seq_num = inicio;
+
+    translate.num = inicio;
     my_strncpy(orange_pack+4, translate.str, BEGIN_CONFIRMATION_ANSWER);
 
-    translate.seq_num = task;
+    translate.num = task;
     my_strncpy(orange_pack+6, translate.str ,TASK_TO_REALIZE);
 
-    translate.seq_num = priority;
+    translate.num = priority;
     my_strncpy(orange_pack+8, translate.str, PRIORITY_SIZE);
 }
 
 void Nodo_naranja::make_package_v(int task, NODO_V nodo)
 {
-    srand( time(nullptr));
+    Data data;
+    bzero(&data,4);
+    srand( static_cast<unsigned int>(time(nullptr) ) );
     int request_number = rand() % INT_MAX-1; //<--RANDOM
 
     char tarea_a_realizar[1];
-    tarea_a_realizar[0] = task;
-    data.seq_num = request_number;
+    tarea_a_realizar[0] = static_cast<char>(task);
+    data.num = request_number;
     my_strncpy(package, data.str, REQUEST_NUM);
 
-    my_strncpy(package+4,(char*)&nodo.name, 2);
+    data.num = nodo.name;
+    my_strncpy(package+4,data.str, 2);
     my_strncpy(package+6,tarea_a_realizar,TASK_TO_REALIZE);
     std::list<int>::iterator list_it;
 
-    data.seq_num = nodo.name;
+    data.num = nodo.name;
     my_strncpy(package+ORANGE_HEADER_SIZE, data.str,4);
 
     int offset = ORANGE_HEADER_SIZE+4;
     for(list_it = this->grafo_v[nodo].begin(); list_it != this->grafo_v[nodo].end() ;++list_it)
     {
-        my_strncpy(package+offset,(char*)&(*list_it),4);
+        data.num = *list_it;
+        my_strncpy(package+offset,data.str,4);
         offset += 4;
     }
 

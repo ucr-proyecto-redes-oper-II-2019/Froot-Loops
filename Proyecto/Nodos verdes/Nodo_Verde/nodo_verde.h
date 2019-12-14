@@ -72,12 +72,12 @@ class Nodo_Verde
         int socket_fd;
     public:
         //-----------FUNCIONES DE NODO VERDE----------------------//
-        Nodo_Verde(char* my_port, char* orange_ip, char* orange_port);
+        [[noreturn]] Nodo_Verde(char* my_port, char* orange_ip, char* orange_port);
         ~Nodo_Verde();
 
         //-----------FUNCIONES DE UTILIDAD-----------------------//
         void net_setup(struct sockaddr_in* me, char* my_port);
-        void send_instantiation_request();
+        [[noreturn]] void send_instantiation_request();
         void make_package_n(short int inicio, int task, short int priority);
         void make_package_a(short int inicio, int task, short int priority);
         ssize_t call_send_tcpl();

@@ -83,8 +83,8 @@ class Nodo_naranja
         ~Nodo_naranja();
 
         //Funciones del nodo naranja
-        void start_listening();
-        void start_responding();
+        [[noreturn]] void start_listening();
+        [[noreturn]] void start_responding();
         void run();
         void net_setup(struct sockaddr_in* me, char* my_port);
 

@@ -1,6 +1,6 @@
 #include "nodo_verde.h"
 
-union Data
+union Data ///<Estructura de datos utilizada para interpretar int como char y viceversa
 {
     int seq_num;
     char str[4];
@@ -63,7 +63,6 @@ char *Nodo_Verde::my_strncpy(char *dest, const char *src, int n)
     {
         dest[i] = src[i];
     }
-
     return dest;
 }
 
@@ -76,7 +75,6 @@ char *Nodo_Verde::my_strncpy(char *dest, const char *src, int n)
 
     make_package_n( 1, CONNECT, 0 );
     call_send_tcpl();
-    //std::cout << "He enviado: " << bytes_sent << std::endl;
 
     while(!end)
     {
@@ -102,7 +100,6 @@ char *Nodo_Verde::my_strncpy(char *dest, const char *src, int n)
         usleep(250000);
     }
 
-
     std::cout << "Me respondieron con el id " << neighbours.front() << std::endl;
     std::cout << "Mis Vecinos son: " << std::endl;
     std::list<int>::iterator list_it;
@@ -114,10 +111,9 @@ char *Nodo_Verde::my_strncpy(char *dest, const char *src, int n)
 
         contador++;
     }
-
     std::cout << std::endl;
 
-    while(true)
+    while(true) ///<Ciclo donde verde atiende consultas
     {
         /*bytes_recieved = call_recv_tcpl();
 
@@ -150,7 +146,6 @@ void Nodo_Verde::make_package_n(short int inicio, int task, short int priority)
     srand( static_cast<unsigned int>(time(nullptr) ) );
     int request_number = rand() % INT_MAX-1; //<--RANDOM
 
-
     char tarea_a_realizar[1];
     tarea_a_realizar[0] = static_cast<char>(task);
 
@@ -161,8 +156,6 @@ void Nodo_Verde::make_package_n(short int inicio, int task, short int priority)
     my_strncpy(package+6, tarea_a_realizar ,TASK_TO_REALIZE);
     data.seq_num = priority;
     my_strncpy(package+8, data.str, PRIORITY_SIZE);
-
-
 }
 
 void Nodo_Verde::make_package_a(short int inicio, int task, short int priority)
@@ -196,8 +189,6 @@ void Nodo_Verde::make_package_a(short int inicio, int task, short int priority)
     }
 
 }
-
-
 
 ssize_t Nodo_Verde::call_send_tcpl()
 {
